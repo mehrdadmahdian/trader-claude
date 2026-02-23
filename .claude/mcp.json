@@ -1,0 +1,52 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/mohammadhass.mahdian/Projects/personal-projects/trader-claude"
+      ]
+    },
+    "git": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-git",
+        "--repository",
+        "/Users/mohammadhass.mahdian/Projects/personal-projects/trader-claude"
+      ]
+    },
+    "fetch": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-fetch"
+      ]
+    },
+    "mysql": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-server-mysql"
+      ],
+      "env": {
+        "MYSQL_HOST": "127.0.0.1",
+        "MYSQL_PORT": "3306",
+        "MYSQL_USER": "trader",
+        "MYSQL_PASSWORD": "traderpassword",
+        "MYSQL_DATABASE": "trader"
+      }
+    },
+    "redis": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-server-redis"
+      ],
+      "env": {
+        "REDIS_URL": "redis://127.0.0.1:6379"
+      }
+    }
+  }
+}
