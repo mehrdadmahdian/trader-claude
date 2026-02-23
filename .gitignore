@@ -1,0 +1,30 @@
+# Environment
+.env
+*.env.local
+
+# Docker volumes
+mysql_data/
+redis_data/
+
+# Go
+backend/tmp/
+backend/vendor/
+*.test
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
