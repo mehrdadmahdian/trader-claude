@@ -18,9 +18,11 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
+	"github.com/trader-claude/backend/internal/adapter"
 	"github.com/trader-claude/backend/internal/api"
 	"github.com/trader-claude/backend/internal/config"
 	"github.com/trader-claude/backend/internal/models"
+	"github.com/trader-claude/backend/internal/registry"
 	"github.com/trader-claude/backend/internal/worker"
 	"github.com/trader-claude/backend/internal/ws"
 )
@@ -68,7 +70,19 @@ func main() {
 	}
 	log.Println("redis connected")
 
-	// 4. Initialize WebSocket hub
+	// 4. Register market adapters
+	registry.Adapters().Register(adapter.NewBinanceAdapter(""))
+	registry.Adapters().Register(adapter.NewYahooAdapter())
+	log.Printf("registered adapters: %v", registry.Adapters().Names())
+
+	// Start data sync worker (tracks recently accessed symbols)
+	ds := adapter.NewDataService(db, rdb)
+	ds.StartSyncWorker(context.Background(), func(name string) (registry.MarketAdapter, bool) {
+		a, err := registry.Adapters().Get(name)
+		return a, err == nil
+	})
+
+	// 5. Initialize WebSocket hub
 	hub := ws.NewHub()
 	go hub.Run()
 

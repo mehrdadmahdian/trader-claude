@@ -6,6 +6,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
+	"github.com/trader-claude/backend/internal/adapter"
 	"github.com/trader-claude/backend/internal/ws"
 )
 
@@ -18,15 +19,15 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	// API v1 group
 	v1 := app.Group("/api/v1")
 
-	// --- Symbols ---
-	v1.Get("/symbols", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"data": []interface{}{}, "message": "symbols endpoint — coming soon"})
-	})
+	// --- Markets ---
+	ds := adapter.NewDataService(db, rdb)
+	mh := newMarketsHandler(ds)
+	v1.Get("/markets", mh.listAdapters)
+	v1.Get("/markets/:adapterID/symbols", mh.listSymbols)
 
 	// --- Candles ---
-	v1.Get("/candles/:symbol", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"data": []interface{}{}, "message": "candles endpoint — coming soon"})
-	})
+	v1.Get("/candles/timeframes", mh.listTimeframes)
+	v1.Get("/candles", mh.getCandles)
 
 	// --- Strategies ---
 	v1.Get("/strategies", func(c *fiber.Ctx) error {
