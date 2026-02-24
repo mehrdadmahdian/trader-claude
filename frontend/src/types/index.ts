@@ -84,30 +84,39 @@ export interface StrategyDef {
   active: boolean
 }
 
+// StrategyInfo is returned by GET /api/v1/strategies
+export interface StrategyInfo {
+  id: string
+  name: string
+  description: string
+  params: ParamDefinition[]
+}
+
 // ── Backtest types ─────────────────────────────────────────────────────────
 
 export type BacktestStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 export interface BacktestMetrics {
   total_return: number
-  annual_return: number
+  annualized_return: number
   sharpe_ratio: number
+  sortino_ratio: number
   max_drawdown: number
+  max_drawdown_duration_seconds: number
   win_rate: number
   profit_factor: number
+  avg_win: number
+  avg_loss: number
   total_trades: number
   winning_trades: number
   losing_trades: number
-  avg_win: number
-  avg_loss: number
   largest_win: number
   largest_loss: number
 }
 
 export interface EquityPoint {
   timestamp: string
-  equity: number
-  drawdown: number
+  value: number
 }
 
 export interface Backtest {
@@ -138,6 +147,20 @@ export interface BacktestCreateRequest {
   start_date: string
   end_date: string
   params: Record<string, unknown>
+}
+
+export interface BacktestRunRequest {
+  name: string
+  strategy: string
+  adapter: string
+  symbol: string
+  market: string
+  timeframe: string
+  start_date: string
+  end_date: string
+  params: Record<string, unknown>
+  initial_cash?: number
+  commission?: number
 }
 
 // ── Trade types ────────────────────────────────────────────────────────────
