@@ -33,6 +33,36 @@ export interface Symbol {
   active: boolean
 }
 
+// ── Market API types (Phase 2) ─────────────────────────────────────────────
+
+export interface MarketAdapter {
+  id: string
+  markets: string[]
+  healthy: boolean
+}
+
+export interface MarketSymbol {
+  id: string
+  market: string
+  base_asset: string
+  quote_asset: string
+  description: string
+  active: boolean
+}
+
+// OHLCVCandle from the API (timestamp is Unix seconds)
+export interface OHLCVCandle {
+  symbol: string
+  market: string
+  timeframe: string
+  timestamp: number
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
 // ── Strategy types ─────────────────────────────────────────────────────────
 
 export interface ParamDefinition {
