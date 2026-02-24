@@ -27,6 +27,7 @@ type RunConfig struct {
 	InitialCash float64 // default 10 000
 	Commission  float64 // fraction per side, default 0.001
 	Slippage    float64 // fraction per side, default 0.0005
+	Timeframe   string  // e.g. "1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"
 }
 
 // EquityPoint is one sample on the equity curve.
@@ -37,21 +38,21 @@ type EquityPoint struct {
 
 // Metrics is the full set of performance statistics computed after a run.
 type Metrics struct {
-	TotalReturn         float64       `json:"total_return"`
-	AnnualizedReturn    float64       `json:"annualized_return"`
-	SharpeRatio         float64       `json:"sharpe_ratio"`
-	SortinoRatio        float64       `json:"sortino_ratio"`
-	MaxDrawdown         float64       `json:"max_drawdown"`
-	MaxDrawdownDuration time.Duration `json:"max_drawdown_duration"`
-	WinRate             float64       `json:"win_rate"`
-	ProfitFactor        float64       `json:"profit_factor"`
-	AvgWin              float64       `json:"avg_win"`
-	AvgLoss             float64       `json:"avg_loss"`
-	TotalTrades         int           `json:"total_trades"`
-	WinningTrades       int           `json:"winning_trades"`
-	LosingTrades        int           `json:"losing_trades"`
-	LargestWin          float64       `json:"largest_win"`
-	LargestLoss         float64       `json:"largest_loss"`
+	TotalReturn         float64 `json:"total_return"`
+	AnnualizedReturn    float64 `json:"annualized_return"`
+	SharpeRatio         float64 `json:"sharpe_ratio"`
+	SortinoRatio        float64 `json:"sortino_ratio"`
+	MaxDrawdown         float64 `json:"max_drawdown"`
+	MaxDrawdownDuration float64 `json:"max_drawdown_duration_seconds"`
+	WinRate             float64 `json:"win_rate"`
+	ProfitFactor        float64 `json:"profit_factor"`
+	AvgWin              float64 `json:"avg_win"`
+	AvgLoss             float64 `json:"avg_loss"`
+	TotalTrades         int     `json:"total_trades"`
+	WinningTrades       int     `json:"winning_trades"`
+	LosingTrades        int     `json:"losing_trades"`
+	LargestWin          float64 `json:"largest_win"`
+	LargestLoss         float64 `json:"largest_loss"`
 }
 
 // Result is returned by Run upon successful completion.
@@ -86,7 +87,7 @@ func Run(ctx context.Context, cfg RunConfig, db *gorm.DB, rdb *redis.Client) (*R
 		return nil, fmt.Errorf("backtest: candles must not be empty")
 	}
 	if cfg.InitialCash <= 0 {
-		return nil, fmt.Errorf("backtest: InitialCash must be > 0")
+		cfg.InitialCash = 10000
 	}
 
 	// --- Apply defaults -----------------------------------------------------
@@ -190,7 +191,7 @@ func Run(ctx context.Context, cfg RunConfig, db *gorm.DB, rdb *redis.Client) (*R
 	if len(equityCurve) > 0 {
 		finalEquity = equityCurve[len(equityCurve)-1].Value
 	}
-	metrics := computeMetrics(closedTrades, equityCurve, cfg.InitialCash, finalEquity)
+	metrics := computeMetrics(closedTrades, equityCurve, cfg.InitialCash, finalEquity, cfg.Timeframe)
 
 	// --- Persist trades to DB (best-effort, skip if nil) -------------------
 	if db != nil && len(closedTrades) > 0 {
@@ -239,7 +240,10 @@ func closePosition(cfg RunConfig, pos *openPosition, candle registry.Candle, cas
 	// PnL = proceeds - cost - total fees
 	cost := pos.quantity * pos.entryPrice
 	pnl := grossProceeds - cost - totalFee
-	pnlPct := pnl / cost * 100
+	var pnlPct float64
+	if cost > 0 {
+		pnlPct = pnl / cost * 100
+	}
 
 	// Update cash
 	newCash := cash + grossProceeds - exitFee
@@ -264,7 +268,7 @@ func closePosition(cfg RunConfig, pos *openPosition, candle registry.Candle, cas
 
 // ---- Metrics computation -----------------------------------------------
 
-func computeMetrics(trades []models.Trade, equityCurve []EquityPoint, initialCash, finalEquity float64) Metrics {
+func computeMetrics(trades []models.Trade, equityCurve []EquityPoint, initialCash, finalEquity float64, timeframe string) Metrics {
 	m := Metrics{}
 
 	// --- Trade-based stats -------------------------------------------------
@@ -331,15 +335,16 @@ func computeMetrics(trades []models.Trade, equityCurve []EquityPoint, initialCas
 	}
 
 	// --- Sharpe and Sortino -----------------------------------------------
+	annFactor := math.Sqrt(periodsPerYear(timeframe))
 	dailyReturns := dailyEquityReturns(equityCurve)
 	if len(dailyReturns) > 1 {
 		mean, std := meanStd(dailyReturns)
 		if std > 0 {
-			m.SharpeRatio = mean / std * math.Sqrt(252)
+			m.SharpeRatio = mean / std * annFactor
 		}
 		downsideStd := downsideDeviation(dailyReturns, 0)
 		if downsideStd > 0 {
-			m.SortinoRatio = mean / downsideStd * math.Sqrt(252)
+			m.SortinoRatio = mean / downsideStd * annFactor
 		}
 	}
 
@@ -365,7 +370,7 @@ func dailyEquityReturns(curve []EquityPoint) []float64 {
 	return returns
 }
 
-// meanStd computes the mean and population standard deviation of xs.
+// meanStd computes the mean and sample standard deviation of xs.
 func meanStd(xs []float64) (mean, std float64) {
 	if len(xs) == 0 {
 		return 0, 0
@@ -374,12 +379,15 @@ func meanStd(xs []float64) (mean, std float64) {
 		mean += x
 	}
 	mean /= float64(len(xs))
+	if len(xs) < 2 {
+		return mean, 0
+	}
 	var variance float64
 	for _, x := range xs {
 		d := x - mean
 		variance += d * d
 	}
-	variance /= float64(len(xs))
+	variance /= float64(len(xs) - 1)
 	std = math.Sqrt(variance)
 	return mean, std
 }
@@ -399,36 +407,56 @@ func downsideDeviation(returns []float64, threshold float64) float64 {
 	return math.Sqrt(sum / float64(len(returns)))
 }
 
+// periodsPerYear returns the number of periods in a calendar year for the
+// given timeframe string, used to annualize Sharpe and Sortino ratios.
+func periodsPerYear(timeframe string) float64 {
+	switch timeframe {
+	case "1m":
+		return 525600 // 365 * 24 * 60
+	case "5m":
+		return 105120 // 365 * 24 * 12
+	case "15m":
+		return 35040 // 365 * 24 * 4
+	case "30m":
+		return 17520 // 365 * 24 * 2
+	case "1h":
+		return 8760 // 365 * 24
+	case "4h":
+		return 2190 // 365 * 6
+	case "1d":
+		return 252
+	case "1w":
+		return 52
+	default:
+		return 252
+	}
+}
+
 // computeMaxDrawdown finds the maximum peak-to-trough percentage drop and
-// the duration of that drawdown period.
-func computeMaxDrawdown(curve []EquityPoint) (maxDD float64, maxDur time.Duration) {
-	if len(curve) == 0 {
+// the duration of that drawdown period in seconds.
+func computeMaxDrawdown(curve []EquityPoint) (float64, float64) {
+	if len(curve) < 2 {
 		return 0, 0
 	}
-	peak := curve[0].Value
+	peakValue := curve[0].Value
 	peakTime := curve[0].Timestamp
-	var curDD float64
-	var drawStart time.Time
+	maxDD := 0.0
+	maxDDStart := curve[0].Timestamp
+	maxDDEnd := curve[0].Timestamp
 
-	for _, ep := range curve {
-		if ep.Value > peak {
-			peak = ep.Value
+	for _, ep := range curve[1:] {
+		if ep.Value > peakValue {
+			peakValue = ep.Value
 			peakTime = ep.Timestamp
-			drawStart = time.Time{} // reset drawdown start
 		}
-		if peak > 0 {
-			curDD = (peak - ep.Value) / peak
-		}
-		if curDD > maxDD {
-			maxDD = curDD
-			if drawStart.IsZero() {
-				drawStart = peakTime
-			}
-			dur := ep.Timestamp.Sub(drawStart)
-			if dur > maxDur {
-				maxDur = dur
+		if peakValue > 0 {
+			dd := (peakValue - ep.Value) / peakValue
+			if dd > maxDD {
+				maxDD = dd
+				maxDDStart = peakTime
+				maxDDEnd = ep.Timestamp
 			}
 		}
 	}
-	return maxDD, maxDur
+	return maxDD, maxDDEnd.Sub(maxDDStart).Seconds()
 }

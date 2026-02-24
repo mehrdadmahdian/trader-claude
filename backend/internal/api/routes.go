@@ -7,11 +7,12 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/trader-claude/backend/internal/adapter"
+	"github.com/trader-claude/backend/internal/worker"
 	"github.com/trader-claude/backend/internal/ws"
 )
 
 // RegisterRoutes wires all HTTP and WebSocket routes onto the Fiber app
-func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub, version string) {
+func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub, version string, pool *worker.WorkerPool, ds *adapter.DataService) {
 	// Health
 	health := newHealthHandler(db, rdb, version)
 	app.Get("/health", health.check)
@@ -20,7 +21,6 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	v1 := app.Group("/api/v1")
 
 	// --- Markets ---
-	ds := adapter.NewDataService(db, rdb)
 	mh := newMarketsHandler(ds)
 	v1.Get("/markets", mh.listAdapters)
 	v1.Get("/markets/:adapterID/symbols", mh.listSymbols)
@@ -30,20 +30,15 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	v1.Get("/candles", mh.getCandles)
 
 	// --- Strategies ---
-	v1.Get("/strategies", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"data": []interface{}{}, "message": "strategies endpoint — coming soon"})
-	})
+	bh := newBacktestHandler(db, rdb, pool, ds)
+	v1.Get("/strategies", bh.listStrategies)
+	v1.Get("/strategies/:id", bh.getStrategy)
 
 	// --- Backtests ---
-	v1.Get("/backtests", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"data": []interface{}{}, "message": "backtests endpoint — coming soon"})
-	})
-	v1.Post("/backtests", func(c *fiber.Ctx) error {
-		return c.Status(fiber.StatusAccepted).JSON(fiber.Map{"message": "backtest run endpoint — coming soon"})
-	})
-	v1.Get("/backtests/:id", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"data": nil, "message": "backtest detail endpoint — coming soon"})
-	})
+	v1.Post("/backtest/run", bh.runBacktest)
+	v1.Get("/backtest/runs", bh.listRuns)
+	v1.Get("/backtest/runs/:id", bh.getRun)
+	v1.Delete("/backtest/runs/:id", bh.deleteRun)
 
 	// --- Portfolios ---
 	v1.Get("/portfolios", func(c *fiber.Ctx) error {
@@ -72,7 +67,7 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	// --- WebSocket ---
+	// --- WebSocket upgrade middleware ---
 	app.Use("/ws", func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) {
 			return c.Next()
@@ -80,5 +75,9 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 		return fiber.ErrUpgradeRequired
 	})
 
+	// Market data WebSocket (hub)
 	app.Get("/ws", websocket.New(hub.ServeWS))
+
+	// Backtest progress WebSocket
+	app.Get("/ws/backtest/:id/progress", websocket.New(bh.progressWS))
 }

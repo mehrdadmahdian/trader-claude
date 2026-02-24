@@ -23,6 +23,7 @@ import (
 	"github.com/trader-claude/backend/internal/config"
 	"github.com/trader-claude/backend/internal/models"
 	"github.com/trader-claude/backend/internal/registry"
+	"github.com/trader-claude/backend/internal/strategy"
 	"github.com/trader-claude/backend/internal/worker"
 	"github.com/trader-claude/backend/internal/ws"
 )
@@ -75,6 +76,12 @@ func main() {
 	registry.Adapters().Register(adapter.NewYahooAdapter())
 	log.Printf("registered adapters: %v", registry.Adapters().Names())
 
+	// 4b. Register strategies
+	registry.Strategies().Register("ema_crossover", func() registry.Strategy { return &strategy.EMACrossover{} })
+	registry.Strategies().Register("rsi", func() registry.Strategy { return &strategy.RSIStrategy{} })
+	registry.Strategies().Register("macd", func() registry.Strategy { return &strategy.MACDSignal{} })
+	log.Printf("registered strategies: %v", registry.Strategies().Names())
+
 	// Start data sync worker (tracks recently accessed symbols)
 	ds := adapter.NewDataService(db, rdb)
 	ds.StartSyncWorker(context.Background(), func(name string) (registry.MarketAdapter, bool) {
@@ -117,7 +124,7 @@ func main() {
 	}))
 
 	// 7. Register routes
-	api.RegisterRoutes(app, db, rdb, hub, cfg.App.Version)
+	api.RegisterRoutes(app, db, rdb, hub, cfg.App.Version, pool, ds)
 
 	// 8. Start server
 	addr := fmt.Sprintf(":%d", cfg.App.Port)
