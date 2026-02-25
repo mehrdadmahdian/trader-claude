@@ -29,6 +29,7 @@ import {
 } from '@/hooks/useBacktest'
 import { useMarkets, useCandles } from '@/hooks/useMarketData'
 import { CandlestickChart } from '@/components/chart/CandlestickChart'
+import type { SeriesMarker, Time } from 'lightweight-charts'
 import { useBacktestStore } from '@/stores'
 import type {
   BacktestMetrics,
@@ -163,49 +164,56 @@ function ParamField({
 
   if (param.type === 'select' && param.options) {
     return (
-      <div>
-        <label className="text-sm font-medium block mb-1">{param.name}</label>
-        {param.description && (
-          <p className="text-xs text-muted-foreground mb-1">{param.description}</p>
-        )}
-        <select
-          className={inputClass}
-          value={String(value ?? param.default ?? '')}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          {param.options.map((opt) => (
-            <option key={opt} value={opt}>
+      <div key={param.name} className="space-y-1">
+        <div className="text-sm font-medium text-foreground">{param.name}</div>
+        <div className="flex flex-wrap gap-1">
+          {(param.options ?? []).map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => onChange(opt)}
+              className={`px-3 py-1 text-sm rounded border transition-colors ${
+                String(value ?? param.default) === opt
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background text-foreground border-input hover:bg-muted'
+              }`}
+            >
               {opt}
-            </option>
+            </button>
           ))}
-        </select>
+        </div>
+        {param.description && <p className="text-xs text-muted-foreground">{param.description}</p>}
       </div>
     )
   }
 
   if (param.type === 'int' || param.type === 'float') {
+    const numValue = Number(value ?? param.default ?? param.min ?? 0)
     return (
-      <div>
-        <div className="flex items-center justify-between mb-1">
-          <label className="text-sm font-medium">{param.name}</label>
-          <span className="text-xs text-muted-foreground tabular-nums">{String(value ?? '')}</span>
+      <div key={param.name} className="space-y-1">
+        <div className="flex justify-between text-sm">
+          <span className="font-medium text-foreground">{param.name}</span>
+          <span className="text-muted-foreground">{numValue}</span>
         </div>
-        {param.description && (
-          <p className="text-xs text-muted-foreground mb-1">{param.description}</p>
-        )}
+        <input
+          type="range"
+          min={param.min as number ?? 0}
+          max={param.max as number ?? 200}
+          step={param.type === 'float' ? 0.01 : 1}
+          value={numValue}
+          onChange={(e) => onChange(param.type === 'float' ? parseFloat(e.target.value) : parseInt(e.target.value, 10))}
+          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+        />
         <input
           type="number"
-          className={inputClass}
-          value={String(value ?? param.default ?? '')}
-          min={param.min}
-          max={param.max}
-          step={param.type === 'float' ? 'any' : '1'}
-          onChange={(e) => {
-            const raw = e.target.value
-            const parsed = param.type === 'float' ? parseFloat(raw) : parseInt(raw, 10)
-            onChange(isNaN(parsed) ? raw : parsed)
-          }}
+          min={param.min as number}
+          max={param.max as number}
+          step={param.type === 'float' ? 0.01 : 1}
+          value={numValue}
+          onChange={(e) => onChange(param.type === 'float' ? parseFloat(e.target.value) : parseInt(e.target.value, 10))}
+          className="w-full px-2 py-1 text-sm rounded border border-input bg-background text-foreground"
         />
+        {param.description && <p className="text-xs text-muted-foreground">{param.description}</p>}
       </div>
     )
   }
@@ -345,11 +353,30 @@ function OverviewTab({
 
 // ── TradesTab ─────────────────────────────────────────────────────────────────
 
+type TradeSortCol = 'entry_time' | 'entry_price' | 'exit_price' | 'pnl' | 'pnl_percent'
+
 function TradesTab({ trades }: { trades: Trade[] }) {
-  const sorted = useMemo(
-    () => [...trades].sort((a, b) => a.entry_time.localeCompare(b.entry_time)),
-    [trades],
-  )
+  const [sortCol, setSortCol] = useState<TradeSortCol>('entry_time')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+
+  function toggleSort(col: TradeSortCol) {
+    if (sortCol === col) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortCol(col); setSortDir('asc') }
+  }
+
+  const sorted = useMemo(() => {
+    return [...trades].sort((a, b) => {
+      let av: number | string, bv: number | string
+      if (sortCol === 'entry_time') { av = a.entry_time; bv = b.entry_time }
+      else if (sortCol === 'pnl') { av = a.pnl ?? 0; bv = b.pnl ?? 0 }
+      else if (sortCol === 'pnl_percent') { av = a.pnl_percent ?? 0; bv = b.pnl_percent ?? 0 }
+      else if (sortCol === 'entry_price') { av = a.entry_price; bv = b.entry_price }
+      else { av = a.exit_price ?? 0; bv = b.exit_price ?? 0 }
+      if (av < bv) return sortDir === 'asc' ? -1 : 1
+      if (av > bv) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [trades, sortCol, sortDir])
 
   const formatPrice = (v: number | undefined) => (v == null ? '—' : v.toFixed(4))
   const formatDate = (iso: string) => {
@@ -358,6 +385,18 @@ function TradesTab({ trades }: { trades: Trade[] }) {
     } catch {
       return iso
     }
+  }
+
+  function SortTh({ col, label, align = 'left' }: { col: TradeSortCol; label: string; align?: 'left' | 'right' }) {
+    const active = sortCol === col
+    return (
+      <th
+        onClick={() => toggleSort(col)}
+        className={`py-2 px-3 text-${align} cursor-pointer select-none hover:text-foreground transition-colors ${active ? 'text-foreground' : ''}`}
+      >
+        {label} {active ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+      </th>
+    )
   }
 
   if (sorted.length === 0) {
@@ -376,12 +415,12 @@ function TradesTab({ trades }: { trades: Trade[] }) {
           <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
             <th className="py-2 px-3 text-left">#</th>
             <th className="py-2 px-3 text-left">Dir</th>
-            <th className="py-2 px-3 text-left">Entry Time</th>
-            <th className="py-2 px-3 text-right">Entry Price</th>
+            <SortTh col="entry_time" label="Entry Time" />
+            <SortTh col="entry_price" label="Entry Price" align="right" />
             <th className="py-2 px-3 text-left">Exit Time</th>
-            <th className="py-2 px-3 text-right">Exit Price</th>
-            <th className="py-2 px-3 text-right">PnL</th>
-            <th className="py-2 px-3 text-right">PnL%</th>
+            <SortTh col="exit_price" label="Exit Price" align="right" />
+            <SortTh col="pnl" label="PnL" align="right" />
+            <SortTh col="pnl_percent" label="PnL%" align="right" />
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -441,6 +480,7 @@ function ChartTab({
   timeframe,
   startDate,
   endDate,
+  trades = [],
 }: {
   adapter: string
   symbol: string
@@ -448,6 +488,7 @@ function ChartTab({
   timeframe: string
   startDate: string
   endDate: string
+  trades?: Trade[]
 }) {
   const { data: candles, isFetching } = useCandles({
     adapter,
@@ -458,9 +499,23 @@ function ChartTab({
     market,
   })
 
+  const markers = useMemo((): SeriesMarker<Time>[] => {
+    if (!trades.length) return []
+    const result: SeriesMarker<Time>[] = []
+    for (const trade of trades) {
+      const entryTs = Math.floor(new Date(trade.entry_time).getTime() / 1000) as Time
+      result.push({ time: entryTs, position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: 'Buy' })
+      if (trade.exit_time) {
+        const exitTs = Math.floor(new Date(trade.exit_time).getTime() / 1000) as Time
+        result.push({ time: exitTs, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: 'Sell' })
+      }
+    }
+    return result.sort((a, b) => (a.time as number) - (b.time as number))
+  }, [trades])
+
   return (
     <div className="h-[400px]">
-      <CandlestickChart candles={candles ?? []} isLoading={isFetching} className="h-full" />
+      <CandlestickChart candles={candles ?? []} markers={markers} isLoading={isFetching} className="h-full" />
     </div>
   )
 }
@@ -988,6 +1043,7 @@ export function Backtest() {
                   timeframe={activeBacktest.timeframe}
                   startDate={activeBacktest.start_date}
                   endDate={activeBacktest.end_date}
+                  trades={trades}
                 />
               )}
             </div>

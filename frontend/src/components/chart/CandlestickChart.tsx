@@ -7,12 +7,15 @@ import {
   type ISeriesApi,
   type CandlestickData,
   type UTCTimestamp,
+  type SeriesMarker,
+  type Time,
 } from 'lightweight-charts'
 import type { OHLCVCandle } from '@/types'
 import { useThemeStore } from '@/stores'
 
 interface CandlestickChartProps {
   candles: OHLCVCandle[]
+  markers?: SeriesMarker<Time>[]
   isLoading?: boolean
   className?: string
 }
@@ -51,7 +54,7 @@ function getChartColors(theme: 'light' | 'dark') {
       }
 }
 
-export function CandlestickChart({ candles, isLoading = false, className = '' }: CandlestickChartProps) {
+export function CandlestickChart({ candles, markers, isLoading = false, className = '' }: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
@@ -140,6 +143,12 @@ export function CandlestickChart({ candles, isLoading = false, className = '' }:
     seriesRef.current.setData(data)
     chartRef.current?.timeScale().fitContent()
   }, [candles])
+
+  // Apply trade markers (buy/sell overlays)
+  useEffect(() => {
+    if (!seriesRef.current) return
+    seriesRef.current.setMarkers(markers ?? [])
+  }, [markers])
 
   return (
     <div className={`relative w-full h-full ${className}`}>
