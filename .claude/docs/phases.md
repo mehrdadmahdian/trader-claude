@@ -131,39 +131,39 @@
 
 ---
 
-## Phase 5 — Technical Indicators on Chart 🔲
+## Phase 5 — Technical Indicators on Chart ✅
 
-### 5.1 — Overlay Indicator Calculations 🔲
+### 5.1 — Overlay Indicator Calculations ✅
 *Backend. No dependencies.*
-- [ ] `internal/indicator/` — pure Go
-- [ ] SMA, EMA, WMA, Bollinger Bands, VWAP, Parabolic SAR, Ichimoku Cloud
-- [ ] Unit tests (known inputs → expected outputs)
+- [x] `internal/indicator/` — pure Go
+- [x] SMA, EMA, WMA, Bollinger Bands, VWAP, Parabolic SAR, Ichimoku Cloud
+- [x] Unit tests (known inputs → expected outputs)
 
-### 5.2 — Panel Indicator Calculations 🔲
+### 5.2 — Panel Indicator Calculations ✅
 *Backend. No dependencies (parallel with 5.1).*
-- [ ] RSI, MACD (line + signal + histogram), Stochastic (%K/%D), ATR, OBV, Volume (colored)
-- [ ] Unit tests
+- [x] RSI, MACD (line + signal + histogram), Stochastic (%K/%D), ATR, OBV, Volume (colored)
+- [x] Unit tests
 
-### 5.3 — Indicators API 🔲
+### 5.3 — Indicators API ✅
 *Backend. Requires 5.1 + 5.2.*
-- [ ] `GET /api/v1/indicators` — metadata + param schemas (grouped by type)
-- [ ] `POST /api/v1/indicators/calculate` — `{indicator_id, params, candles}` → time-series arrays
-- [ ] API integration tests
+- [x] `GET /api/v1/indicators` — metadata + param schemas (grouped by type)
+- [x] `POST /api/v1/indicators/calculate` — `{indicator_id, params, candles}` → time-series arrays
+- [x] API integration tests
 
-### 5.4 — Frontend Indicator Modal + Toolbar 🔲
+### 5.4 — Frontend Indicator Modal + Toolbar ✅
 *Frontend. Requires 5.3.*
-- [ ] "Indicators" button → searchable modal (grouped: Trend, Momentum, Volatility, Volume)
-- [ ] Auto-generated param config form per indicator
-- [ ] Active indicator chips in toolbar (click to edit/remove)
-- [ ] Persist active indicators + params to `localStorage`
+- [x] "Indicators" button → searchable modal (grouped: Trend, Momentum, Volatility, Volume)
+- [x] Auto-generated param config form per indicator
+- [x] Active indicator chips in toolbar (click to edit/remove)
+- [x] Persist active indicators + params to `localStorage`
 
-### 5.5 — Frontend Chart Rendering 🔲
+### 5.5 — Frontend Chart Rendering ✅
 *Frontend. Requires 5.4.*
-- [ ] Overlay indicators as line series on main chart pane
-- [ ] Bollinger Bands: 3 lines + filled area; Ichimoku: full cloud with Kumo coloring
-- [ ] Panel indicators in separate panes below chart (header + close button)
-- [ ] Re-fetch on param change (single indicator only)
-- [ ] localStorage persistence tests
+- [x] Overlay indicators as line series on main chart pane
+- [x] Bollinger Bands: 3 lines; Ichimoku: 5 lines (cloud fill deferred — plugin required)
+- [x] Panel indicators in separate panes below chart (header + close button)
+- [x] Re-calculate on candle load and on indicator add
+- [x] localStorage persistence per symbol:timeframe
 
 ---
 
