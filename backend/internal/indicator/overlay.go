@@ -198,3 +198,157 @@ func VWAP(candles []registry.Candle, params map[string]interface{}) (CalcResult,
 	}
 	return CalcResult{Timestamps: timestamps(candles), Series: map[string][]float64{"value": vals}}, nil
 }
+
+// ParabolicSAR computes Parabolic Stop-And-Reverse.
+// params: step float (default 0.02), max float (default 0.2)
+// Output: "value". Index 0 is NaN; index 1 onward is finite.
+func ParabolicSAR(candles []registry.Candle, params map[string]interface{}) (CalcResult, error) {
+	step, err := floatParam(params, "step", 0.02)
+	if err != nil {
+		return CalcResult{}, err
+	}
+	maxAF, err := floatParam(params, "max", 0.2)
+	if err != nil {
+		return CalcResult{}, err
+	}
+	n := len(candles)
+	vals := nanSlice(n)
+	if n < 2 {
+		return CalcResult{Timestamps: timestamps(candles), Series: map[string][]float64{"value": vals}}, nil
+	}
+
+	// Initial trend: bullish if close[1] > close[0]
+	bull := candles[1].Close > candles[0].Close
+	af := step
+	var ep, sar float64
+	if bull {
+		ep = candles[0].High
+		sar = candles[0].Low
+	} else {
+		ep = candles[0].Low
+		sar = candles[0].High
+	}
+	vals[0] = math.NaN()
+
+	for i := 1; i < n; i++ {
+		c := candles[i]
+		newSAR := sar + af*(ep-sar)
+
+		// Clamp SAR behind the two previous candles
+		if bull {
+			if i >= 2 {
+				newSAR = math.Min(newSAR, math.Min(candles[i-1].Low, candles[i-2].Low))
+			} else {
+				newSAR = math.Min(newSAR, candles[i-1].Low)
+			}
+		} else {
+			if i >= 2 {
+				newSAR = math.Max(newSAR, math.Max(candles[i-1].High, candles[i-2].High))
+			} else {
+				newSAR = math.Max(newSAR, candles[i-1].High)
+			}
+		}
+
+		// Check for reversal
+		if bull && c.Low < newSAR {
+			bull = false
+			newSAR = ep
+			ep = c.Low
+			af = step
+		} else if !bull && c.High > newSAR {
+			bull = true
+			newSAR = ep
+			ep = c.High
+			af = step
+		} else {
+			if bull && c.High > ep {
+				ep = c.High
+				af = math.Min(af+step, maxAF)
+			} else if !bull && c.Low < ep {
+				ep = c.Low
+				af = math.Min(af+step, maxAF)
+			}
+		}
+		vals[i] = newSAR
+		sar = newSAR
+	}
+	return CalcResult{Timestamps: timestamps(candles), Series: map[string][]float64{"value": vals}}, nil
+}
+
+// highLow returns highest high and lowest low over candles[start:end+1].
+func highLow(candles []registry.Candle, start, end int) (float64, float64) {
+	hi, lo := candles[start].High, candles[start].Low
+	for i := start + 1; i <= end; i++ {
+		if candles[i].High > hi {
+			hi = candles[i].High
+		}
+		if candles[i].Low < lo {
+			lo = candles[i].Low
+		}
+	}
+	return hi, lo
+}
+
+// Ichimoku computes all five Ichimoku Cloud components.
+// params: tenkan int (9), kijun int (26), senkou_b int (52), displacement int (26)
+// Outputs: "tenkan", "kijun", "senkou_a", "senkou_b", "chikou"
+// All series have length == len(candles).
+func Ichimoku(candles []registry.Candle, params map[string]interface{}) (CalcResult, error) {
+	tenkan, _ := intParam(params, "tenkan", 9)
+	kijun, _ := intParam(params, "kijun", 26)
+	senkouBPeriod, _ := intParam(params, "senkou_b", 52)
+	disp, _ := intParam(params, "displacement", 26)
+	n := len(candles)
+
+	tenkanVals  := nanSlice(n)
+	kijunVals   := nanSlice(n)
+	senkouAVals := nanSlice(n)
+	senkouBVals := nanSlice(n)
+	chikouVals  := nanSlice(n)
+
+	for i := 0; i < n; i++ {
+		if i >= tenkan-1 {
+			hi, lo := highLow(candles, i-tenkan+1, i)
+			tenkanVals[i] = (hi + lo) / 2
+		}
+		if i >= kijun-1 {
+			hi, lo := highLow(candles, i-kijun+1, i)
+			kijunVals[i] = (hi + lo) / 2
+		}
+		// Senkou A = (tenkan + kijun) / 2, plotted disp periods ahead
+		if i >= kijun-1 {
+			t := tenkanVals[i]
+			k := kijunVals[i]
+			if !math.IsNaN(t) && !math.IsNaN(k) {
+				target := i + disp
+				if target < n {
+					senkouAVals[target] = (t + k) / 2
+				}
+			}
+		}
+		// Senkou B, plotted disp periods ahead
+		if i >= senkouBPeriod-1 {
+			hi, lo := highLow(candles, i-senkouBPeriod+1, i)
+			target := i + disp
+			if target < n {
+				senkouBVals[target] = (hi + lo) / 2
+			}
+		}
+		// Chikou = current close plotted disp periods behind
+		target := i - disp
+		if target >= 0 {
+			chikouVals[target] = candles[i].Close
+		}
+	}
+
+	return CalcResult{
+		Timestamps: timestamps(candles),
+		Series: map[string][]float64{
+			"tenkan":   tenkanVals,
+			"kijun":    kijunVals,
+			"senkou_a": senkouAVals,
+			"senkou_b": senkouBVals,
+			"chikou":   chikouVals,
+		},
+	}, nil
+}

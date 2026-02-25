@@ -185,3 +185,56 @@ func TestVWAP(t *testing.T) {
 		t.Errorf("vwap[1] got %f, want 15.0", res.Series["value"][1])
 	}
 }
+
+func TestParabolicSAR_TrendFlip(t *testing.T) {
+	closes := []float64{10, 11, 12, 13, 14, 13, 12, 11, 10, 9}
+	highs  := []float64{10.5, 11.5, 12.5, 13.5, 14.5, 13.5, 12.5, 11.5, 10.5, 9.5}
+	lows   := []float64{9.5,  10.5, 11.5, 12.5, 13.5, 12.5, 11.5, 10.5, 9.5,  8.5}
+	candles := make([]registry.Candle, len(closes))
+	for i := range closes {
+		candles[i] = registry.Candle{
+			Timestamp: time.Unix(int64(i)*3600, 0),
+			Open: closes[i], High: highs[i], Low: lows[i], Close: closes[i], Volume: 1000,
+		}
+	}
+	res, err := ParabolicSAR(candles, map[string]interface{}{"step": 0.02, "max": 0.2})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res.Series["value"]) != len(candles) {
+		t.Fatalf("length mismatch: got %d, want %d", len(res.Series["value"]), len(candles))
+	}
+	// index 0 is NaN by convention
+	if !math.IsNaN(res.Series["value"][0]) {
+		t.Error("expected NaN at index 0")
+	}
+	// After warm-up (index 1+), values must be finite
+	for i := 1; i < len(candles); i++ {
+		if math.IsNaN(res.Series["value"][i]) {
+			t.Errorf("unexpected NaN at index %d", i)
+		}
+	}
+}
+
+func TestIchimoku_OutputKeys(t *testing.T) {
+	n := 100
+	closes := make([]float64, n)
+	for i := range closes {
+		closes[i] = float64(100 + i)
+	}
+	candles := makeCandles(closes)
+	res, err := Ichimoku(candles, map[string]interface{}{
+		"tenkan": 9, "kijun": 26, "senkou_b": 52, "displacement": 26,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, key := range []string{"tenkan", "kijun", "senkou_a", "senkou_b", "chikou"} {
+		if _, ok := res.Series[key]; !ok {
+			t.Errorf("missing output series %q", key)
+		}
+		if len(res.Series[key]) != n {
+			t.Errorf("series %q length %d, want %d", key, len(res.Series[key]), n)
+		}
+	}
+}
