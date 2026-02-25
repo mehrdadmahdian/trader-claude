@@ -19,6 +19,9 @@ import {
   TrendingUp,
   TrendingDown,
   AlertCircle,
+  Film,
+  Bookmark,
+  Trash2,
 } from 'lucide-react'
 import {
   useStrategies,
@@ -28,7 +31,10 @@ import {
   useBacktestProgress,
 } from '@/hooks/useBacktest'
 import { useMarkets, useCandles } from '@/hooks/useMarketData'
+import { useCreateReplaySession, useReplayBookmarks, useDeleteBookmark } from '@/hooks/useReplay'
 import { CandlestickChart } from '@/components/chart/CandlestickChart'
+import { ReplayOverlay } from '@/components/replay/ReplayOverlay'
+import { BookmarkModal } from '@/components/replay/BookmarkModal'
 import type { SeriesMarker, Time } from 'lightweight-charts'
 import { useBacktestStore } from '@/stores'
 import type {
@@ -559,9 +565,81 @@ function StrategyCardSkeleton() {
   )
 }
 
+// ── BookmarksTab ──────────────────────────────────────────────────────────────
+
+function BookmarksTab({ runId }: { runId: number }) {
+  const { data: bookmarks, isLoading } = useReplayBookmarks(runId)
+  const deleteBookmarkMutation = useDeleteBookmark(runId)
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!bookmarks || bookmarks.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+        <Bookmark className="h-10 w-10 opacity-30" />
+        <p className="text-sm">No bookmarks yet. Start a replay to save moments.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {bookmarks.map((bm) => (
+        <div
+          key={bm.id}
+          className="flex items-start gap-3 p-4 rounded-lg border border-border bg-card"
+        >
+          {bm.chart_snapshot && (
+            <img
+              src={bm.chart_snapshot}
+              alt="chart snapshot"
+              className="w-24 h-16 object-cover rounded border border-border flex-shrink-0"
+            />
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium truncate">{bm.label || '(no label)'}</p>
+              <span className="text-xs text-muted-foreground tabular-nums flex-shrink-0">
+                #{bm.candle_index}
+              </span>
+            </div>
+            {bm.note && (
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{bm.note}</p>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              {(() => {
+                try {
+                  return format(parseISO(bm.created_at), 'MMM d, yyyy HH:mm')
+                } catch {
+                  return bm.created_at
+                }
+              })()}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => deleteBookmarkMutation.mutate(bm.id)}
+            disabled={deleteBookmarkMutation.isPending}
+            className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors flex-shrink-0"
+            title="Delete bookmark"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Main Backtest page ────────────────────────────────────────────────────────
 
-type ResultTab = 'overview' | 'trades' | 'chart'
+type ResultTab = 'overview' | 'trades' | 'chart' | 'bookmarks'
 
 export function Backtest() {
   // Strategy selection
@@ -587,16 +665,23 @@ export function Backtest() {
   // Results panel
   const [resultTab, setResultTab] = useState<ResultTab>('overview')
 
+  // Replay modal state
+  const [bookmarkModalOpen, setBookmarkModalOpen] = useState(false)
+
   // Zustand store
   const activeBacktest = useBacktestStore((s) => s.activeBacktest)
   const setActiveBacktest = useBacktestStore((s) => s.setActiveBacktest)
   const updateBacktest = useBacktestStore((s) => s.updateBacktest)
+  const setReplayActive = useBacktestStore((s) => s.setReplayActive)
+  const setReplayOpen = useBacktestStore((s) => s.setReplayOpen)
+  const replayOpen = useBacktestStore((s) => s.replayOpen)
 
   // Queries / mutations
   const { data: strategies, isLoading: strategiesLoading } = useStrategies()
   const { data: adapters } = useMarkets()
   const { data: recentRuns } = useBacktestRuns()
   const runMutation = useRunBacktest()
+  const createSession = useCreateReplaySession()
 
   // Selected strategy info
   const selectedStrategy = strategies?.find((s) => s.id === selectedStrategyId) ?? null
@@ -686,6 +771,17 @@ export function Backtest() {
     commission,
     runMutation,
   ])
+
+  const handleOpenReplay = useCallback(async () => {
+    if (!activeBacktest) return
+    try {
+      const result = await createSession.mutateAsync(activeBacktest.id)
+      setReplayActive(true, result.replay_id)
+      setReplayOpen(true)
+    } catch (err) {
+      console.error('[Backtest] failed to create replay session', err)
+    }
+  }, [activeBacktest, createSession, setReplayActive, setReplayOpen])
 
   const inputClass =
     'w-full bg-background border border-border rounded px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary'
@@ -1007,12 +1103,29 @@ export function Backtest() {
                     </span>
                   </div>
                 </div>
-                <StatusBadge status={activeBacktest.status} />
+                <div className="flex items-center gap-2">
+                  {activeBacktest.status === 'completed' && (
+                    <button
+                      type="button"
+                      onClick={handleOpenReplay}
+                      disabled={createSession.isPending || replayOpen}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {createSession.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Film className="h-3.5 w-3.5" />
+                      )}
+                      Replay
+                    </button>
+                  )}
+                  <StatusBadge status={activeBacktest.status} />
+                </div>
               </div>
 
               {/* Tabs */}
               <div className="flex items-center gap-1 mt-4">
-                {(['overview', 'trades', 'chart'] as ResultTab[]).map((tab) => (
+                {(['overview', 'trades', 'chart', 'bookmarks'] as ResultTab[]).map((tab) => (
                   <button
                     key={tab}
                     type="button"
@@ -1046,10 +1159,15 @@ export function Backtest() {
                   trades={trades}
                 />
               )}
+              {resultTab === 'bookmarks' && <BookmarksTab runId={activeBacktest.id} />}
             </div>
           </div>
         )}
       </div>
+
+      {/* Replay overlay + bookmark modal */}
+      <ReplayOverlay onSaveBookmark={() => setBookmarkModalOpen(true)} />
+      <BookmarkModal open={bookmarkModalOpen} onClose={() => setBookmarkModalOpen(false)} />
     </div>
   )
 }
