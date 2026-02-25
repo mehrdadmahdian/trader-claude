@@ -10,12 +10,13 @@ import {
   type SeriesMarker,
   type Time,
 } from 'lightweight-charts'
-import type { OHLCVCandle } from '@/types'
+import type { ActiveIndicator, OHLCVCandle } from '@/types'
 import { useThemeStore } from '@/stores'
 
 interface CandlestickChartProps {
   candles: OHLCVCandle[]
   markers?: SeriesMarker<Time>[]
+  overlayIndicators?: ActiveIndicator[]
   isLoading?: boolean
   className?: string
 }
@@ -54,10 +55,11 @@ function getChartColors(theme: 'light' | 'dark') {
       }
 }
 
-export function CandlestickChart({ candles, markers, isLoading = false, className = '' }: CandlestickChartProps) {
+export function CandlestickChart({ candles, markers, overlayIndicators, isLoading = false, className = '' }: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
+  const overlaySeriesRef = useRef<ISeriesApi<'Line'>[]>([])
   const theme = useThemeStore((s) => s.theme)
 
   // Create chart on mount, destroy on unmount
@@ -149,6 +151,37 @@ export function CandlestickChart({ candles, markers, isLoading = false, classNam
     if (!seriesRef.current) return
     seriesRef.current.setMarkers(markers ?? [])
   }, [markers])
+
+  // Render overlay indicator series (SMA, EMA, BBands, etc.)
+  useEffect(() => {
+    const chart = chartRef.current
+    if (!chart) return
+
+    // Remove previous overlay series
+    overlaySeriesRef.current.forEach((s) => {
+      try { chart.removeSeries(s) } catch { /* chart may be destroyed */ }
+    })
+    overlaySeriesRef.current = []
+
+    if (!overlayIndicators) return
+
+    overlayIndicators
+      .filter((ind) => ind.meta.type === 'overlay' && ind.result)
+      .forEach((ind) => {
+        ind.meta.outputs.forEach((output) => {
+          const raw = ind.result!.series[output.name]
+          if (!raw) return
+          const s = chart.addLineSeries({ color: output.color, lineWidth: 1 })
+          const points = ind.result!.timestamps
+            .map((ts, i) => ({ time: ts as UTCTimestamp, value: raw[i] }))
+            .filter((p): p is { time: UTCTimestamp; value: number } =>
+              p.value !== null && p.value !== undefined && !isNaN(p.value as number),
+            )
+          s.setData(points)
+          overlaySeriesRef.current.push(s)
+        })
+      })
+  }, [overlayIndicators])
 
   return (
     <div className={`relative w-full h-full ${className}`}>

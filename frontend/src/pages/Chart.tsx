@@ -1,10 +1,15 @@
-import { useState, useMemo, useCallback } from 'react'
-import { RefreshCw, ChevronDown, Search } from 'lucide-react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { RefreshCw, ChevronDown, Search, BarChart2 } from 'lucide-react'
 import { subDays, formatISO } from 'date-fns'
+import { useMutation } from '@tanstack/react-query'
 import { useMarkets, useSymbols, useCandles, useTimeframes } from '@/hooks/useMarketData'
 import { CandlestickChart } from '@/components/chart/CandlestickChart'
-import { useMarketStore } from '@/stores'
-import type { MarketSymbol } from '@/types'
+import { IndicatorModal } from '@/components/chart/IndicatorModal'
+import { IndicatorChips } from '@/components/chart/IndicatorChips'
+import { PanelChart } from '@/components/chart/PanelChart'
+import { calculateIndicator } from '@/api/indicators'
+import { useMarketStore, useThemeStore } from '@/stores'
+import type { ActiveIndicator, MarketSymbol, OHLCVCandle } from '@/types'
 
 const TIMEFRAMES = ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w']
 
@@ -21,6 +26,19 @@ function defaultDateRange(timeframe: string) {
   }
 }
 
+function storageKey(symbol: string | null, timeframe: string) {
+  return `indicators:${symbol ?? ''}:${timeframe}`
+}
+
+function loadStoredIndicators(symbol: string | null, timeframe: string): ActiveIndicator[] {
+  try {
+    const stored = localStorage.getItem(storageKey(symbol, timeframe))
+    return stored ? (JSON.parse(stored) as ActiveIndicator[]) : []
+  } catch {
+    return []
+  }
+}
+
 export function Chart() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
@@ -31,6 +49,9 @@ export function Chart() {
   const setSelectedSymbol = useMarketStore((s) => s.setSelectedSymbol)
   const setSelectedMarket = useMarketStore((s) => s.setSelectedMarket)
   const setSelectedTimeframe = useMarketStore((s) => s.setSelectedTimeframe)
+
+  const theme = useThemeStore((s) => s.theme)
+  const isDark = theme === 'dark'
 
   const [selectedAdapter, setSelectedAdapter] = useState('binance')
 
@@ -59,6 +80,84 @@ export function Chart() {
     to,
     market: selectedMarket,
   })
+
+  // ── Indicators state ───────────────────────────────────────────────────────
+
+  const [indicatorModalOpen, setIndicatorModalOpen] = useState(false)
+  const [activeIndicators, setActiveIndicators] = useState<ActiveIndicator[]>(() =>
+    loadStoredIndicators(selectedSymbol, selectedTimeframe),
+  )
+
+  // Persist {meta, params} subset to localStorage on change
+  useEffect(() => {
+    const persisted = activeIndicators.map(({ meta, params }) => ({ meta, params, result: undefined }))
+    localStorage.setItem(storageKey(selectedSymbol, selectedTimeframe), JSON.stringify(persisted))
+  }, [activeIndicators, selectedSymbol, selectedTimeframe])
+
+  // Reload stored indicators when symbol or timeframe changes
+  useEffect(() => {
+    setActiveIndicators(loadStoredIndicators(selectedSymbol, selectedTimeframe))
+  }, [selectedSymbol, selectedTimeframe])
+
+  const { mutateAsync: calcIndicator } = useMutation({ mutationFn: calculateIndicator })
+
+  // Build the candle payload once so multiple effects can share it
+  const candlePayload = useMemo<OHLCVCandle[]>(
+    () => candles ?? [],
+    [candles],
+  )
+
+  function toCandleRequest(cs: OHLCVCandle[]) {
+    return cs.map((c) => ({
+      timestamp: c.timestamp,
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+      volume: c.volume,
+    }))
+  }
+
+  // Re-calculate all active indicators when candles change
+  useEffect(() => {
+    if (candlePayload.length === 0 || activeIndicators.length === 0) return
+    const payload = toCandleRequest(candlePayload)
+    activeIndicators.forEach((ind, idx) => {
+      calcIndicator({ indicator_id: ind.meta.id, params: ind.params, candles: payload })
+        .then((result) => {
+          setActiveIndicators((prev) =>
+            prev.map((a, i) => (i === idx ? { ...a, result } : a)),
+          )
+        })
+        .catch(() => { /* chart still renders without indicator */ })
+    })
+  }, [candlePayload]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleAddIndicator = useCallback(
+    async (ind: ActiveIndicator) => {
+      if (candlePayload.length === 0) {
+        setActiveIndicators((prev) => [...prev, ind])
+        return
+      }
+      try {
+        const result = await calcIndicator({
+          indicator_id: ind.meta.id,
+          params: ind.params,
+          candles: toCandleRequest(candlePayload),
+        })
+        setActiveIndicators((prev) => [...prev, { ...ind, result }])
+      } catch {
+        setActiveIndicators((prev) => [...prev, ind])
+      }
+    },
+    [candlePayload, calcIndicator],
+  )
+
+  const handleRemoveIndicator = useCallback((id: string) => {
+    setActiveIndicators((prev) => prev.filter((a) => a.meta.id !== id))
+  }, [])
+
+  // ── Symbol search ──────────────────────────────────────────────────────────
 
   const filteredSymbols = useMemo(() => {
     if (!symbols) return []
@@ -90,6 +189,11 @@ export function Chart() {
     },
     [setSelectedSymbol],
   )
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  const overlayIndicators = activeIndicators.filter((ind) => ind.meta.type === 'overlay')
+  const panelIndicators = activeIndicators.filter((ind) => ind.meta.type === 'panel')
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] gap-4 p-4">
@@ -189,6 +293,25 @@ export function Chart() {
           ))}
         </div>
 
+        {/* Indicators button */}
+        <button
+          onClick={() => setIndicatorModalOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-2 text-sm bg-card border border-border rounded-md hover:bg-accent transition-colors"
+          aria-label="Open indicators"
+        >
+          <BarChart2 className="h-4 w-4" />
+          Indicators
+        </button>
+
+        {/* Active indicator chips */}
+        {activeIndicators.length > 0 && (
+          <IndicatorChips
+            indicators={activeIndicators}
+            onRemove={handleRemoveIndicator}
+            onEdit={() => setIndicatorModalOpen(true)}
+          />
+        )}
+
         {/* Refresh button */}
         <button
           onClick={() => refetch()}
@@ -202,7 +325,7 @@ export function Chart() {
       </div>
 
       {/* ── Chart area ── */}
-      <div className="flex-1 bg-card border border-border rounded-lg overflow-hidden">
+      <div className="flex-1 bg-card border border-border rounded-lg overflow-hidden min-h-0">
         {!selectedSymbol ? (
           /* Empty state */
           <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
@@ -228,11 +351,30 @@ export function Chart() {
           /* Chart with loading overlay */
           <CandlestickChart
             candles={candles ?? []}
+            overlayIndicators={overlayIndicators}
             isLoading={isFetching}
             className="h-full"
           />
         )}
       </div>
+
+      {/* ── Panel indicators ── */}
+      {panelIndicators.map((ind) => (
+        <PanelChart
+          key={ind.meta.id}
+          indicator={ind}
+          onClose={() => handleRemoveIndicator(ind.meta.id)}
+          isDark={isDark}
+        />
+      ))}
+
+      {/* ── Indicator modal ── */}
+      <IndicatorModal
+        open={indicatorModalOpen}
+        onClose={() => setIndicatorModalOpen(false)}
+        active={activeIndicators}
+        onAdd={handleAddIndicator}
+      />
     </div>
   )
 }
