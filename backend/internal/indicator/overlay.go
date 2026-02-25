@@ -18,6 +18,9 @@ func intParam(params map[string]interface{}, key string, def int) (int, error) {
 	case int:
 		return x, nil
 	case float64:
+		if x != math.Trunc(x) {
+			return def, fmt.Errorf("param %q must be an integer, got %v", key, x)
+		}
 		return int(x), nil
 	case int64:
 		return int(x), nil

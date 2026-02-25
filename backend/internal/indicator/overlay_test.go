@@ -78,4 +78,36 @@ func TestWMA(t *testing.T) {
 	if !approxEq(res.Series["value"][3], 20.0/6.0, 0.001) {
 		t.Errorf("WMA[3] got %f, want %f", res.Series["value"][3], 20.0/6.0)
 	}
+	// WMA[4] = (1*3 + 2*4 + 3*5)/6 = (3+8+15)/6 = 26/6
+	if !approxEq(res.Series["value"][4], 26.0/6.0, 0.001) {
+		t.Errorf("WMA[4] got %f, want %f", res.Series["value"][4], 26.0/6.0)
+	}
+}
+
+func TestSMAEdgeCases(t *testing.T) {
+	// period=0 must error
+	_, err := SMA(makeCandles([]float64{1, 2, 3}), map[string]interface{}{"period": 0})
+	if err == nil {
+		t.Error("expected error for period=0, got nil")
+	}
+
+	// period=1: every output equals its close
+	res, err := SMA(makeCandles([]float64{1, 2, 3}), map[string]interface{}{"period": 1})
+	if err != nil {
+		t.Fatalf("unexpected error for period=1: %v", err)
+	}
+	for i, want := range []float64{1, 2, 3} {
+		if !approxEq(res.Series["value"][i], want, 0.001) {
+			t.Errorf("SMA period=1 [%d] got %f, want %f", i, res.Series["value"][i], want)
+		}
+	}
+
+	// n=0: must return empty result without panic
+	res, err = SMA(makeCandles(nil), map[string]interface{}{"period": 3})
+	if err != nil {
+		t.Fatalf("unexpected error for n=0: %v", err)
+	}
+	if len(res.Series["value"]) != 0 {
+		t.Errorf("expected empty series for n=0, got %d elements", len(res.Series["value"]))
+	}
 }
