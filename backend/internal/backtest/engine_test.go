@@ -119,16 +119,25 @@ func TestEngine_NilStrategyReturnsError(t *testing.T) {
 	}
 }
 
-func TestEngine_ZeroInitialCashReturnsError(t *testing.T) {
+func TestEngine_ZeroInitialCashDefaultsTen000(t *testing.T) {
 	cfg := RunConfig{
 		BacktestID:  1,
 		Strategy:    &flatStrategy{},
 		Candles:     makeCandles(5, 100, 1),
 		InitialCash: 0,
 	}
-	_, err := runTest(t, cfg)
-	if err == nil {
-		t.Fatal("expected error for zero initial cash, got nil")
+	result, err := runTest(t, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error for zero initial cash: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if len(result.EquityCurve) == 0 {
+		t.Fatal("expected non-empty equity curve")
+	}
+	if result.EquityCurve[0].Value != 10000 {
+		t.Errorf("expected first equity point to be 10000, got %f", result.EquityCurve[0].Value)
 	}
 }
 
