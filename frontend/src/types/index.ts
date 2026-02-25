@@ -287,3 +287,73 @@ export interface HealthResponse {
   redis: string
   version: string
 }
+
+// ── Replay types ────────────────────────────────────────────────────────────
+
+export type ReplayStatus = 'idle' | 'playing' | 'paused' | 'complete'
+
+export interface ReplayCandle {
+  symbol: string
+  market: string
+  timeframe: string
+  timestamp: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
+export interface ReplayEquityPoint {
+  timestamp: string
+  value: number
+}
+
+export interface ReplayTradeEvent {
+  trade: Trade
+}
+
+export interface ReplaySeekSnapshot {
+  candles: ReplayCandle[]
+  equity: ReplayEquityPoint[]
+  trades: Trade[]
+}
+
+export interface ReplayState {
+  state: ReplayStatus
+  index: number
+  total: number
+  speed: number
+}
+
+// Messages sent FROM server TO client
+export interface ReplayServerMsg {
+  type: 'candle' | 'trade_open' | 'trade_close' | 'equity_update' | 'seek_snapshot' | 'status' | 'error'
+  data: ReplayCandle | ReplayTradeEvent | ReplayEquityPoint | ReplaySeekSnapshot | ReplayState | string
+}
+
+// Messages sent FROM client TO server
+export interface ReplayControlMsg {
+  type: 'start' | 'resume' | 'pause' | 'step' | 'set_speed' | 'seek'
+  speed?: number
+  index?: number
+}
+
+export interface ReplayBookmark {
+  id: number
+  user_id: number
+  backtest_run_id: number
+  candle_index: number
+  label: string
+  note: string
+  chart_snapshot: string
+  created_at: string
+}
+
+export interface CreateBookmarkRequest {
+  backtest_run_id: number
+  candle_index: number
+  label: string
+  note: string
+  chart_snapshot: string
+}

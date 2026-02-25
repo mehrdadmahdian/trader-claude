@@ -1,6 +1,19 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Alert, Backtest, Notification, Portfolio, Symbol, Tick } from '@/types'
+import type {
+  Alert,
+  Backtest,
+  Notification,
+  Portfolio,
+  ReplayCandle,
+  ReplayEquityPoint,
+  ReplayServerMsg,
+  ReplayState,
+  ReplayStatus,
+  Symbol,
+  Tick,
+  Trade,
+} from '@/types'
 
 // ── Theme store ────────────────────────────────────────────────────────────
 
@@ -87,6 +100,23 @@ interface BacktestStore {
   setBacktests: (b: Backtest[]) => void
   setActiveBacktest: (b: Backtest | null) => void
   updateBacktest: (b: Backtest) => void
+
+  // Replay state
+  replayActive: boolean
+  replayId: string | null
+  replayState: ReplayStatus
+  replayIndex: number
+  replayTotal: number
+  replaySpeed: number
+  replayCandles: ReplayCandle[]
+  replayEquity: ReplayEquityPoint[]
+  replayTrades: Trade[]
+  replayOpen: boolean
+
+  setReplayActive: (active: boolean, replayId?: string) => void
+  setReplayOpen: (open: boolean) => void
+  applyReplayMsg: (msg: ReplayServerMsg) => void
+  resetReplay: () => void
 }
 
 export const useBacktestStore = create<BacktestStore>()((set) => ({
@@ -99,6 +129,77 @@ export const useBacktestStore = create<BacktestStore>()((set) => ({
       backtests: s.backtests.map((x) => (x.id === b.id ? b : x)),
       activeBacktest: s.activeBacktest?.id === b.id ? b : s.activeBacktest,
     })),
+
+  // Replay initial state
+  replayActive: false,
+  replayId: null,
+  replayState: 'idle',
+  replayIndex: 0,
+  replayTotal: 0,
+  replaySpeed: 1,
+  replayCandles: [],
+  replayEquity: [],
+  replayTrades: [],
+  replayOpen: false,
+
+  setReplayActive: (active, replayId) =>
+    set((s) => ({
+      replayActive: active,
+      replayId: replayId ?? s.replayId,
+      replayCandles: active ? s.replayCandles : [],
+      replayEquity: active ? s.replayEquity : [],
+      replayTrades: active ? s.replayTrades : [],
+      replayState: active ? 'idle' : 'idle',
+      replayIndex: active ? 0 : 0,
+    })),
+
+  setReplayOpen: (replayOpen) => set({ replayOpen }),
+
+  applyReplayMsg: (msg) =>
+    set((s) => {
+      switch (msg.type) {
+        case 'status': {
+          const d = msg.data as ReplayState
+          return { replayState: d.state, replayIndex: d.index, replayTotal: d.total, replaySpeed: d.speed }
+        }
+        case 'candle': {
+          const candle = msg.data as ReplayCandle
+          return { replayCandles: [...s.replayCandles, candle] }
+        }
+        case 'equity_update': {
+          const eq = msg.data as ReplayEquityPoint
+          return { replayEquity: [...s.replayEquity, eq] }
+        }
+        case 'trade_open':
+        case 'trade_close': {
+          const ev = msg.data as { trade: Trade }
+          const exists = s.replayTrades.some((t) => t.id === ev.trade.id)
+          return exists
+            ? { replayTrades: s.replayTrades.map((t) => (t.id === ev.trade.id ? ev.trade : t)) }
+            : { replayTrades: [...s.replayTrades, ev.trade] }
+        }
+        case 'seek_snapshot': {
+          const snap = msg.data as { candles: ReplayCandle[]; equity: ReplayEquityPoint[]; trades: Trade[] }
+          return { replayCandles: snap.candles, replayEquity: snap.equity, replayTrades: snap.trades }
+        }
+        default:
+          return {}
+      }
+    }),
+
+  resetReplay: () =>
+    set({
+      replayActive: false,
+      replayId: null,
+      replayState: 'idle',
+      replayIndex: 0,
+      replayTotal: 0,
+      replaySpeed: 1,
+      replayCandles: [],
+      replayEquity: [],
+      replayTrades: [],
+      replayOpen: false,
+    }),
 }))
 
 // ── Portfolio store ────────────────────────────────────────────────────────
