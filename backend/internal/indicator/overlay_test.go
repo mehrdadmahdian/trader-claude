@@ -143,6 +143,29 @@ func TestBollingerBands(t *testing.T) {
 	}
 }
 
+func TestBollingerBandsSpread(t *testing.T) {
+	// period=3, std_dev=2 on [1,2,3]
+	// mean=2.0, E[X²]=(1+4+9)/3=14/3, variance=14/3-4=2/3, std=sqrt(2/3)≈0.8165
+	// upper = 2.0 + 2*0.8165 ≈ 3.633, lower ≈ 0.367
+	candles := makeCandles([]float64{1, 2, 3})
+	res, err := BollingerBands(candles, map[string]interface{}{"period": 3, "std_dev": 2.0})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	std := math.Sqrt(2.0 / 3.0)
+	wantUpper := 2.0 + 2*std
+	wantLower := 2.0 - 2*std
+	if !approxEq(res.Series["upper"][2], wantUpper, 0.001) {
+		t.Errorf("upper[2] got %f, want %f", res.Series["upper"][2], wantUpper)
+	}
+	if !approxEq(res.Series["middle"][2], 2.0, 0.001) {
+		t.Errorf("middle[2] got %f, want 2.0", res.Series["middle"][2])
+	}
+	if !approxEq(res.Series["lower"][2], wantLower, 0.001) {
+		t.Errorf("lower[2] got %f, want %f", res.Series["lower"][2], wantLower)
+	}
+}
+
 func TestVWAP(t *testing.T) {
 	// VWAP: cumulative sum(close*vol) / sum(vol)
 	// candle 0: close=10, vol=100 → vwap=10

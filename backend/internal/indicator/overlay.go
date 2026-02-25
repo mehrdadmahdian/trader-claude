@@ -151,6 +151,9 @@ func BollingerBands(candles []registry.Candle, params map[string]interface{}) (C
 	if err != nil {
 		return CalcResult{}, err
 	}
+	if period < 1 {
+		return CalcResult{}, fmt.Errorf("period must be >= 1")
+	}
 	n := len(candles)
 	upper := nanSlice(n)
 	middle := nanSlice(n)
