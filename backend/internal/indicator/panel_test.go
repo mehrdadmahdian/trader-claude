@@ -224,3 +224,39 @@ func TestATR_ConstantRange(t *testing.T) {
 		}
 	}
 }
+
+func TestOBV(t *testing.T) {
+	candles := []registry.Candle{
+		{Timestamp: time.Unix(0, 0),     Open: 10, High: 11, Low: 9,  Close: 10, Volume: 1000},
+		{Timestamp: time.Unix(3600, 0),  Open: 10, High: 12, Low: 9,  Close: 11, Volume: 500},  // up   → OBV = 500
+		{Timestamp: time.Unix(7200, 0),  Open: 11, High: 12, Low: 8,  Close: 9,  Volume: 300},  // down → OBV = 200
+		{Timestamp: time.Unix(10800, 0), Open: 9,  High: 10, Low: 8,  Close: 9,  Volume: 200},  // flat → OBV = 200
+		{Timestamp: time.Unix(14400, 0), Open: 9,  High: 13, Low: 8,  Close: 12, Volume: 800},  // up   → OBV = 1000
+	}
+	res, err := OBV(candles, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []float64{0, 500, 200, 200, 1000}
+	for i, w := range want {
+		if !approxEqP(res.Series["value"][i], w, 0.001) {
+			t.Errorf("OBV[%d]=%f, want %f", i, res.Series["value"][i], w)
+		}
+	}
+}
+
+func TestVolume_Length(t *testing.T) {
+	candles := makePanelCandles([]float64{1, 2, 3, 4, 5})
+	res, err := Volume(candles, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res.Series["value"]) != 5 {
+		t.Fatalf("expected length 5, got %d", len(res.Series["value"]))
+	}
+	for i, c := range candles {
+		if !approxEqP(res.Series["value"][i], c.Volume, 0.001) {
+			t.Errorf("volume[%d]=%f, want %f", i, res.Series["value"][i], c.Volume)
+		}
+	}
+}

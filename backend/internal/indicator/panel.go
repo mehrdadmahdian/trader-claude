@@ -248,3 +248,36 @@ func ATR(candles []registry.Candle, params map[string]interface{}) (CalcResult, 
 	}
 	return CalcResult{Timestamps: timestamps(candles), Series: map[string][]float64{"value": vals}}, nil
 }
+
+// OBV computes On-Balance Volume. Starts at 0, no warm-up.
+// No params.
+func OBV(candles []registry.Candle, params map[string]interface{}) (CalcResult, error) {
+	n := len(candles)
+	vals := make([]float64, n)
+	if n == 0 {
+		return CalcResult{Timestamps: timestamps(candles), Series: map[string][]float64{"value": vals}}, nil
+	}
+	vals[0] = 0
+	for i := 1; i < n; i++ {
+		switch {
+		case candles[i].Close > candles[i-1].Close:
+			vals[i] = vals[i-1] + candles[i].Volume
+		case candles[i].Close < candles[i-1].Close:
+			vals[i] = vals[i-1] - candles[i].Volume
+		default:
+			vals[i] = vals[i-1]
+		}
+	}
+	return CalcResult{Timestamps: timestamps(candles), Series: map[string][]float64{"value": vals}}, nil
+}
+
+// Volume returns raw volume values. No params, no warm-up.
+// The frontend colours bars green (close >= open) or red (close < open).
+func Volume(candles []registry.Candle, params map[string]interface{}) (CalcResult, error) {
+	n := len(candles)
+	vals := make([]float64, n)
+	for i, c := range candles {
+		vals[i] = c.Volume
+	}
+	return CalcResult{Timestamps: timestamps(candles), Series: map[string][]float64{"value": vals}}, nil
+}
