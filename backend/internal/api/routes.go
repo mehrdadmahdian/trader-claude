@@ -7,12 +7,13 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/trader-claude/backend/internal/adapter"
+	"github.com/trader-claude/backend/internal/replay"
 	"github.com/trader-claude/backend/internal/worker"
 	"github.com/trader-claude/backend/internal/ws"
 )
 
 // RegisterRoutes wires all HTTP and WebSocket routes onto the Fiber app
-func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub, version string, pool *worker.WorkerPool, ds *adapter.DataService) {
+func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub, version string, pool *worker.WorkerPool, ds *adapter.DataService, mgr *replay.Manager) {
 	// Health
 	health := newHealthHandler(db, rdb, version)
 	app.Get("/health", health.check)
@@ -39,6 +40,14 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	v1.Get("/backtest/runs", bh.listRuns)
 	v1.Get("/backtest/runs/:id", bh.getRun)
 	v1.Delete("/backtest/runs/:id", bh.deleteRun)
+
+	// --- Replay ---
+	rh := newReplayHandler(db, ds, mgr)
+	v1.Post("/backtest/runs/:id/replay", rh.createReplay)
+	v1.Post("/replay/bookmarks", rh.createBookmark)
+	v1.Get("/replay/bookmarks", rh.listBookmarks)
+	v1.Get("/replay/bookmarks/:id", rh.getBookmark)
+	v1.Delete("/replay/bookmarks/:id", rh.deleteBookmark)
 
 	// --- Portfolios ---
 	v1.Get("/portfolios", func(c *fiber.Ctx) error {
@@ -80,4 +89,7 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 
 	// Backtest progress WebSocket
 	app.Get("/ws/backtest/:id/progress", websocket.New(bh.progressWS))
+
+	// Replay WebSocket
+	app.Get("/ws/replay/:replay_id", websocket.New(rh.replayWS))
 }

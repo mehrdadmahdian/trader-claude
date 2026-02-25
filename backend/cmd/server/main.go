@@ -23,6 +23,7 @@ import (
 	"github.com/trader-claude/backend/internal/config"
 	"github.com/trader-claude/backend/internal/models"
 	"github.com/trader-claude/backend/internal/registry"
+	"github.com/trader-claude/backend/internal/replay"
 	"github.com/trader-claude/backend/internal/strategy"
 	"github.com/trader-claude/backend/internal/worker"
 	"github.com/trader-claude/backend/internal/ws"
@@ -97,6 +98,9 @@ func main() {
 	pool := worker.NewPool(cfg.Worker.PoolSize)
 	pool.Start()
 
+	// Initialize replay manager
+	replayMgr := replay.NewManager()
+
 	// 6. Setup Fiber app
 	app := fiber.New(fiber.Config{
 		AppName:      "trader-claude " + cfg.App.Version,
@@ -124,7 +128,7 @@ func main() {
 	}))
 
 	// 7. Register routes
-	api.RegisterRoutes(app, db, rdb, hub, cfg.App.Version, pool, ds)
+	api.RegisterRoutes(app, db, rdb, hub, cfg.App.Version, pool, ds, replayMgr)
 
 	// 8. Start server
 	addr := fmt.Sprintf(":%d", cfg.App.Port)
