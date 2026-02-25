@@ -136,6 +136,7 @@ const (
 type Backtest struct {
 	ID           int64          `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name         string         `gorm:"type:varchar(200);not null" json:"name"`
+	AdapterID    string         `gorm:"type:varchar(50);not null;default:''" json:"adapter_id"`
 	StrategyName string         `gorm:"type:varchar(100);not null;index" json:"strategy_name"`
 	Symbol       string         `gorm:"type:varchar(20);not null" json:"symbol"`
 	Market       string         `gorm:"type:varchar(20);not null" json:"market"`
@@ -290,3 +291,19 @@ type WatchList struct {
 }
 
 func (WatchList) TableName() string { return "watch_lists" }
+
+// --- ReplayBookmark ---
+
+// ReplayBookmark stores an annotated moment in a replay session for future research.
+type ReplayBookmark struct {
+	ID            int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID        int64     `gorm:"index;default:1" json:"user_id"`
+	BacktestRunID int64     `gorm:"index;not null" json:"backtest_run_id"`
+	CandleIndex   int       `gorm:"not null" json:"candle_index"`
+	Label         string    `gorm:"type:varchar(255)" json:"label"`
+	Note          string    `gorm:"type:text" json:"note"`
+	ChartSnapshot string    `gorm:"type:longtext" json:"chart_snapshot"` // base64 PNG
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+func (ReplayBookmark) TableName() string { return "replay_bookmarks" }

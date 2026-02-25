@@ -180,6 +180,7 @@ func (h *backtestHandler) runBacktest(c *fiber.Ctx) error {
 	// Create backtest record in DB
 	bt := models.Backtest{
 		Name:         req.Name,
+		AdapterID:    req.Adapter,
 		StrategyName: req.Strategy,
 		Symbol:       req.Symbol,
 		Market:       req.Market,

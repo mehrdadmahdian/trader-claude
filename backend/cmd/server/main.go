@@ -186,5 +186,6 @@ func autoMigrate(db *gorm.DB) error {
 		&models.Alert{},
 		&models.Notification{},
 		&models.WatchList{},
+		&models.ReplayBookmark{},
 	)
 }
