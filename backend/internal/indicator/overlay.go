@@ -138,3 +138,60 @@ func WMA(candles []registry.Candle, params map[string]interface{}) (CalcResult, 
 	}
 	return CalcResult{Timestamps: timestamps(candles), Series: map[string][]float64{"value": vals}}, nil
 }
+
+// BollingerBands computes BB with middle (SMA), upper, and lower bands.
+// params: period int (default 20), std_dev float (default 2.0)
+// Outputs: "upper", "middle", "lower"
+func BollingerBands(candles []registry.Candle, params map[string]interface{}) (CalcResult, error) {
+	period, err := intParam(params, "period", 20)
+	if err != nil {
+		return CalcResult{}, err
+	}
+	stdMult, err := floatParam(params, "std_dev", 2.0)
+	if err != nil {
+		return CalcResult{}, err
+	}
+	n := len(candles)
+	upper := nanSlice(n)
+	middle := nanSlice(n)
+	lower := nanSlice(n)
+
+	for i := period - 1; i < n; i++ {
+		sum, sumSq := 0.0, 0.0
+		for j := i - period + 1; j <= i; j++ {
+			c := candles[j].Close
+			sum += c
+			sumSq += c * c
+		}
+		mean := sum / float64(period)
+		variance := sumSq/float64(period) - mean*mean
+		if variance < 0 {
+			variance = 0
+		}
+		std := math.Sqrt(variance)
+		middle[i] = mean
+		upper[i] = mean + stdMult*std
+		lower[i] = mean - stdMult*std
+	}
+	return CalcResult{
+		Timestamps: timestamps(candles),
+		Series:     map[string][]float64{"upper": upper, "middle": middle, "lower": lower},
+	}, nil
+}
+
+// VWAP computes cumulative Volume-Weighted Average Price (no params, no warm-up).
+func VWAP(candles []registry.Candle, params map[string]interface{}) (CalcResult, error) {
+	n := len(candles)
+	vals := make([]float64, n)
+	cumPV, cumV := 0.0, 0.0
+	for i, c := range candles {
+		cumPV += c.Close * c.Volume
+		cumV += c.Volume
+		if cumV == 0 {
+			vals[i] = math.NaN()
+		} else {
+			vals[i] = cumPV / cumV
+		}
+	}
+	return CalcResult{Timestamps: timestamps(candles), Series: map[string][]float64{"value": vals}}, nil
+}

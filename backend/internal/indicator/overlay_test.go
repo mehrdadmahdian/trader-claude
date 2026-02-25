@@ -111,3 +111,54 @@ func TestSMAEdgeCases(t *testing.T) {
 		t.Errorf("expected empty series for n=0, got %d elements", len(res.Series["value"]))
 	}
 }
+
+func TestBollingerBands(t *testing.T) {
+	// period=3, std_dev=2 on [2,2,2,2,2] → all equal closes
+	// middle=2, std=0, upper=2, lower=2
+	candles := makeCandles([]float64{2, 2, 2, 2, 2})
+	res, err := BollingerBands(candles, map[string]interface{}{"period": 3, "std_dev": 2.0})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, k := range []string{"upper", "middle", "lower"} {
+		if _, ok := res.Series[k]; !ok {
+			t.Fatalf("missing series %q", k)
+		}
+	}
+	// first two NaN
+	if !math.IsNaN(res.Series["middle"][0]) {
+		t.Error("expected NaN at index 0")
+	}
+	// index 2 onwards: all equal to 2.0
+	for i := 2; i < 5; i++ {
+		if !approxEq(res.Series["middle"][i], 2.0, 0.001) {
+			t.Errorf("middle[%d]=%f, want 2.0", i, res.Series["middle"][i])
+		}
+		if !approxEq(res.Series["upper"][i], 2.0, 0.001) {
+			t.Errorf("upper[%d]=%f, want 2.0", i, res.Series["upper"][i])
+		}
+		if !approxEq(res.Series["lower"][i], 2.0, 0.001) {
+			t.Errorf("lower[%d]=%f, want 2.0", i, res.Series["lower"][i])
+		}
+	}
+}
+
+func TestVWAP(t *testing.T) {
+	// VWAP: cumulative sum(close*vol) / sum(vol)
+	// candle 0: close=10, vol=100 → vwap=10
+	// candle 1: close=20, vol=100 → vwap=(10*100+20*100)/200=15
+	candles := []registry.Candle{
+		{Timestamp: time.Unix(0, 0), Close: 10, Volume: 100, Open: 10, High: 10, Low: 10},
+		{Timestamp: time.Unix(3600, 0), Close: 20, Volume: 100, Open: 20, High: 20, Low: 20},
+	}
+	res, err := VWAP(candles, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !approxEq(res.Series["value"][0], 10.0, 0.001) {
+		t.Errorf("vwap[0] got %f, want 10.0", res.Series["value"][0])
+	}
+	if !approxEq(res.Series["value"][1], 15.0, 0.001) {
+		t.Errorf("vwap[1] got %f, want 15.0", res.Series["value"][1])
+	}
+}
