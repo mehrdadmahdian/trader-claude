@@ -357,3 +357,47 @@ export interface CreateBookmarkRequest {
   note: string
   chart_snapshot: string
 }
+
+// ── Indicator types (Phase 5) ───────────────────────────────────────────────
+
+export type IndicatorType = 'overlay' | 'panel'
+export type IndicatorGroup = 'trend' | 'momentum' | 'volatility' | 'volume'
+
+export interface OutputDef {
+  name: string
+  color: string
+}
+
+export interface IndicatorMeta {
+  id: string
+  name: string
+  full_name: string
+  type: IndicatorType
+  group: IndicatorGroup
+  params: ParamDefinition[]  // reuses the existing ParamDefinition interface
+  outputs: OutputDef[]
+}
+
+export interface CalcResult {
+  timestamps: number[]
+  series: Record<string, (number | null)[]>
+}
+
+export interface ActiveIndicator {
+  meta: IndicatorMeta
+  params: Record<string, unknown>
+  result?: CalcResult
+}
+
+export interface CalculateRequest {
+  indicator_id: string
+  params: Record<string, unknown>
+  candles: Array<{
+    timestamp: number
+    open: number
+    high: number
+    low: number
+    close: number
+    volume: number
+  }>
+}
