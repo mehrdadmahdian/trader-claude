@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/trader-claude/backend/internal/adapter"
+	"github.com/trader-claude/backend/internal/indicator"
 	"github.com/trader-claude/backend/internal/replay"
 	"github.com/trader-claude/backend/internal/worker"
 	"github.com/trader-claude/backend/internal/ws"
@@ -48,6 +49,11 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	v1.Get("/replay/bookmarks", rh.listBookmarks)
 	v1.Get("/replay/bookmarks/:id", rh.getBookmark)
 	v1.Delete("/replay/bookmarks/:id", rh.deleteBookmark)
+
+	// --- Indicators ---
+	ih := indicator.NewHandler()
+	v1.Get("/indicators", ih.ListIndicators)
+	v1.Post("/indicators/calculate", ih.Calculate)
 
 	// --- Portfolios ---
 	v1.Get("/portfolios", func(c *fiber.Ctx) error {
