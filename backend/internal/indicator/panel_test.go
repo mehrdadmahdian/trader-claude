@@ -172,3 +172,55 @@ func TestMACD_EdgeCases(t *testing.T) {
 		}
 	}
 }
+
+func TestStochastic_Overbought(t *testing.T) {
+	// All closes rising to max with low always at 100 → %K should approach 100
+	closes := make([]float64, 20)
+	for i := range closes {
+		closes[i] = float64(100 + i)
+	}
+	candles := make([]registry.Candle, len(closes))
+	for i, c := range closes {
+		candles[i] = registry.Candle{
+			Timestamp: time.Unix(int64(i)*3600, 0),
+			Open: c, High: c + 1, Low: 100, Close: c, Volume: 1000,
+		}
+	}
+	res, err := Stochastic(candles, map[string]interface{}{"k_period": 5, "d_period": 3, "smooth": 1})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, k := range []string{"k", "d"} {
+		if _, ok := res.Series[k]; !ok {
+			t.Fatalf("missing series %q", k)
+		}
+	}
+	// After warm-up, %K > 80 (overbought) since close is always above lowest low
+	for i := 10; i < len(candles); i++ {
+		if !math.IsNaN(res.Series["k"][i]) && res.Series["k"][i] < 80 {
+			t.Errorf("stoch_k[%d]=%f, expected overbought (>80)", i, res.Series["k"][i])
+		}
+	}
+}
+
+func TestATR_ConstantRange(t *testing.T) {
+	// Candles with constant range of 2 (high-low=2, no gaps) → ATR should converge to 2
+	candles := make([]registry.Candle, 20)
+	for i := range candles {
+		c := float64(100)
+		candles[i] = registry.Candle{
+			Timestamp: time.Unix(int64(i)*3600, 0),
+			Open: c, High: c + 1, Low: c - 1, Close: c, Volume: 1000,
+		}
+	}
+	res, err := ATR(candles, map[string]interface{}{"period": 14})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// After seed period, ATR should be exactly 2
+	for i := 14; i < 20; i++ {
+		if !approxEqP(res.Series["value"][i], 2.0, 0.01) {
+			t.Errorf("ATR[%d]=%f, want ~2.0", i, res.Series["value"][i])
+		}
+	}
+}

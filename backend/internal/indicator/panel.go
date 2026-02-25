@@ -139,3 +139,112 @@ func MACD(candles []registry.Candle, params map[string]interface{}) (CalcResult,
 		Series:     map[string][]float64{"macd": macdLine, "signal": signalLine, "histogram": histogram},
 	}, nil
 }
+
+// Stochastic computes Fast Stochastic Oscillator (%K and %D).
+// params: k_period int (14), d_period int (3), smooth int (3)
+// Outputs: "k", "d"
+func Stochastic(candles []registry.Candle, params map[string]interface{}) (CalcResult, error) {
+	kPeriod, _ := intParam(params, "k_period", 14)
+	dPeriod, _ := intParam(params, "d_period", 3)
+	smooth, _ := intParam(params, "smooth", 3)
+	n := len(candles)
+
+	rawK := nanSlice(n)
+	for i := kPeriod - 1; i < n; i++ {
+		hi, lo := candles[i-kPeriod+1].High, candles[i-kPeriod+1].Low
+		for j := i - kPeriod + 2; j <= i; j++ {
+			if candles[j].High > hi {
+				hi = candles[j].High
+			}
+			if candles[j].Low < lo {
+				lo = candles[j].Low
+			}
+		}
+		denom := hi - lo
+		if denom == 0 {
+			rawK[i] = 50
+		} else {
+			rawK[i] = (candles[i].Close - lo) / denom * 100
+		}
+	}
+
+	// %K smoothed = SMA(rawK, smooth)
+	kVals := nanSlice(n)
+	for i := kPeriod + smooth - 2; i < n; i++ {
+		sum, valid := 0.0, true
+		for j := i - smooth + 1; j <= i; j++ {
+			if math.IsNaN(rawK[j]) {
+				valid = false
+				break
+			}
+			sum += rawK[j]
+		}
+		if valid {
+			kVals[i] = sum / float64(smooth)
+		}
+	}
+
+	// %D = SMA(%K, dPeriod)
+	dVals := nanSlice(n)
+	for i := kPeriod + smooth + dPeriod - 3; i < n; i++ {
+		sum, count := 0.0, 0
+		for j := i - dPeriod + 1; j <= i; j++ {
+			if !math.IsNaN(kVals[j]) {
+				sum += kVals[j]
+				count++
+			}
+		}
+		if count == dPeriod {
+			dVals[i] = sum / float64(dPeriod)
+		}
+	}
+
+	return CalcResult{
+		Timestamps: timestamps(candles),
+		Series:     map[string][]float64{"k": kVals, "d": dVals},
+	}, nil
+}
+
+// ATR computes Average True Range using Wilder smoothing.
+// params: period int (default 14)
+// Output: "value". First `period` values are NaN.
+func ATR(candles []registry.Candle, params map[string]interface{}) (CalcResult, error) {
+	period, err := intParam(params, "period", 14)
+	if err != nil {
+		return CalcResult{}, err
+	}
+	if period < 1 {
+		return CalcResult{}, fmt.Errorf("period must be >= 1")
+	}
+	n := len(candles)
+	vals := nanSlice(n)
+	if n < 2 {
+		return CalcResult{Timestamps: timestamps(candles), Series: map[string][]float64{"value": vals}}, nil
+	}
+
+	trueRange := func(i int) float64 {
+		c := candles[i]
+		prev := candles[i-1].Close
+		return math.Max(c.High-c.Low, math.Max(math.Abs(c.High-prev), math.Abs(c.Low-prev)))
+	}
+
+	// Need at least period+1 candles for first ATR
+	if n < period+1 {
+		return CalcResult{Timestamps: timestamps(candles), Series: map[string][]float64{"value": vals}}, nil
+	}
+
+	// Seed: simple average of first `period` TRs
+	sum := 0.0
+	for i := 1; i <= period; i++ {
+		sum += trueRange(i)
+	}
+	atr := sum / float64(period)
+	vals[period] = atr
+
+	// Wilder smoothing
+	for i := period + 1; i < n; i++ {
+		atr = (atr*float64(period-1) + trueRange(i)) / float64(period)
+		vals[i] = atr
+	}
+	return CalcResult{Timestamps: timestamps(candles), Series: map[string][]float64{"value": vals}}, nil
+}
