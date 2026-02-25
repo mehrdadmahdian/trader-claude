@@ -42,6 +42,8 @@ func RSI(candles []registry.Candle, params map[string]interface{}) (CalcResult, 
 	}
 	n := len(candles)
 	vals := nanSlice(n)
+	// RSI needs `period` price-changes, requiring at least period+1 candles.
+	// Use <= (not <) to guard the seed loop that accesses candles[period].
 	if n <= period {
 		return CalcResult{Timestamps: timestamps(candles), Series: map[string][]float64{"value": vals}}, nil
 	}

@@ -92,3 +92,83 @@ func TestMACD_OutputKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestRSI_MixedReturns(t *testing.T) {
+	// 14 gains of 1.0 followed by 7 losses of 1.0
+	// After seed: avgGain=1.0, avgLoss=0, RSI=100
+	// After first loss at index 15: avgLoss starts growing, RSI drops below 100
+	closes := make([]float64, 22)
+	closes[0] = 100
+	for i := 1; i <= 14; i++ {
+		closes[i] = closes[i-1] + 1
+	}
+	for i := 15; i < 22; i++ {
+		closes[i] = closes[i-1] - 1
+	}
+	candles := makePanelCandles(closes)
+	res, err := RSI(candles, map[string]interface{}{"period": 14})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Index 14: first finite RSI — all gains, RSI=100
+	if !approxEqP(res.Series["value"][14], 100.0, 0.001) {
+		t.Errorf("RSI[14]=%f, want 100", res.Series["value"][14])
+	}
+	// Index 15+: losses pull RSI below 100
+	for i := 15; i < 22; i++ {
+		if res.Series["value"][i] >= 100.0 {
+			t.Errorf("RSI[%d]=%f after losses, expected < 100", i, res.Series["value"][i])
+		}
+		if res.Series["value"][i] < 0 {
+			t.Errorf("RSI[%d]=%f, should never be negative", i, res.Series["value"][i])
+		}
+	}
+}
+
+func TestRSI_EdgeCases(t *testing.T) {
+	// n == period: should return all-NaN without panic
+	candles := makePanelCandles(make([]float64, 14))
+	res, err := RSI(candles, map[string]interface{}{"period": 14})
+	if err != nil {
+		t.Fatalf("unexpected error for n==period: %v", err)
+	}
+	for i, v := range res.Series["value"] {
+		if !math.IsNaN(v) {
+			t.Errorf("expected NaN at index %d for n==period, got %f", i, v)
+		}
+	}
+
+	// n == 0: empty result
+	res, err = RSI(makePanelCandles(nil), map[string]interface{}{"period": 14})
+	if err != nil {
+		t.Fatalf("unexpected error for n==0: %v", err)
+	}
+	if len(res.Series["value"]) != 0 {
+		t.Errorf("expected empty series for n=0, got %d", len(res.Series["value"]))
+	}
+}
+
+func TestMACD_EdgeCases(t *testing.T) {
+	// n < slow: all-NaN, no panic
+	candles := makePanelCandles(make([]float64, 10))
+	res, err := MACD(candles, map[string]interface{}{"fast": 12, "slow": 26, "signal": 9})
+	if err != nil {
+		t.Fatalf("unexpected error for n<slow: %v", err)
+	}
+	for _, k := range []string{"macd", "signal", "histogram"} {
+		for i, v := range res.Series[k] {
+			if !math.IsNaN(v) {
+				t.Errorf("MACD %s[%d]=%f, expected NaN for n<slow", k, i, v)
+			}
+		}
+	}
+
+	// All series output length must equal input length
+	candles40 := makePanelCandles(make([]float64, 40))
+	res, _ = MACD(candles40, map[string]interface{}{"fast": 12, "slow": 26, "signal": 9})
+	for _, k := range []string{"macd", "signal", "histogram"} {
+		if len(res.Series[k]) != 40 {
+			t.Errorf("MACD %s length %d, want 40", k, len(res.Series[k]))
+		}
+	}
+}
