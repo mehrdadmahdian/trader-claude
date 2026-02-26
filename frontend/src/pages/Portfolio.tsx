@@ -128,6 +128,7 @@ export function Portfolio() {
       />
 
       <AddPositionModal
+        key={editingPosition?.id ?? 'new'}
         open={showAddPosition || !!editingPosition}
         portfolioId={activePortfolioId ?? 0}
         editingPosition={editingPosition}
