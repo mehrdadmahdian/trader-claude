@@ -278,7 +278,9 @@ func (s *Service) RecalculatePortfolio(ctx context.Context, portfolioID int64) e
 			pos.UnrealizedPnLPct = (pos.UnrealizedPnL / costBasis) * 100
 		}
 		totalValue += pos.CurrentValue
-		s.db.WithContext(ctx).Save(pos)
+		if err := s.db.WithContext(ctx).Save(pos).Error; err != nil {
+			return err
+		}
 	}
 
 	return s.db.WithContext(ctx).Model(&models.Portfolio{}).Where("id = ?", portfolioID).

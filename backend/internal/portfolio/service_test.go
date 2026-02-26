@@ -109,7 +109,9 @@ func TestAddPositionAndRecalculate(t *testing.T) {
 	}
 
 	var pos2 models.Position
-	db.First(&pos2, pos.ID)
+	if err := db.WithContext(context.Background()).First(&pos2, pos.ID).Error; err != nil {
+		t.Fatalf("fetch updated position: %v", err)
+	}
 	// UnrealizedPnL = (50000 - 40000) * 2 = 20000
 	if pos2.UnrealizedPnL != 20000.0 {
 		t.Errorf("expected UnrealizedPnL=20000, got %f", pos2.UnrealizedPnL)
