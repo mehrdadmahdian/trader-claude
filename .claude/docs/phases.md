@@ -167,41 +167,41 @@
 
 ---
 
-## Phase 6 — Portfolio Tracker 🔲
+## Phase 6 — Portfolio Tracker ✅
 
-### 6.1 — Portfolio Service + CRUD API 🔲
+### 6.1 — Portfolio Service + CRUD API ✅
 *Backend. No dependencies.*
-- [ ] `internal/portfolio/` — CRUD for portfolios + positions
-- [ ] `POST/GET/PUT/DELETE /api/v1/portfolios`
-- [ ] `GET /api/v1/portfolios/:id` (with positions)
-- [ ] `POST/PUT/DELETE /api/v1/portfolios/:id/positions`
-- [ ] `POST/GET /api/v1/portfolios/:id/transactions` (paginated)
+- [x] `internal/portfolio/` — CRUD for portfolios + positions
+- [x] `POST/GET/PUT/DELETE /api/v1/portfolios`
+- [x] `GET /api/v1/portfolios/:id` (with positions)
+- [x] `POST/PUT/DELETE /api/v1/portfolios/:id/positions`
+- [x] `POST/GET /api/v1/portfolios/:id/transactions` (paginated)
 
-### 6.2 — Price Service + PnL Calculator 🔲
+### 6.2 — Price Service + PnL Calculator ✅
 *Backend. Requires 6.1.*
-- [ ] `PriceService` — Binance `/api/v3/ticker/price` + Yahoo, Redis cache 30s TTL
-- [ ] `PnLCalculator` — unrealized PnL per position (current price vs avg cost)
-- [ ] Tests: cache behavior, PnL math
+- [x] `PriceService` — Binance `/api/v3/ticker/price` + Yahoo, Redis cache 30s TTL
+- [x] `PnLCalculator` — unrealized PnL per position (current price vs avg cost)
+- [x] Tests: cache behavior, PnL math
 
-### 6.3 — Portfolio WebSocket 🔲
+### 6.3 — Portfolio WebSocket ✅
 *Backend. Requires 6.2.*
-- [ ] `WS /ws/portfolio/:id/live` — PnL updates every 5s
-- [ ] Tests: WS stream delivery
+- [x] `WS /ws/portfolio/:id/live` — PnL updates every 5s
+- [x] Tests: WS stream delivery
 
-### 6.4 — Portfolio Frontend — Layout + Table 🔲
+### 6.4 — Portfolio Frontend — Layout + Table ✅
 *Frontend. Requires 6.1.*
-- [ ] Portfolio selector dropdown + "New Portfolio" button
-- [ ] Summary cards: Total Value, Total PnL (green/red), PnL%, Day Change%
-- [ ] Positions table: Asset, Qty, Avg Cost, Current Price, Value, PnL, PnL%, Weight
-- [ ] "Add Position" FAB → modal (adapter, symbol, qty, avg price, date)
+- [x] Portfolio selector dropdown + "New Portfolio" button
+- [x] Summary cards: Total Value, Total PnL (green/red), PnL%, Day Change%
+- [x] Positions table: Asset, Qty, Avg Cost, Current Price, Value, PnL, PnL%, Weight
+- [x] "Add Position" FAB → modal (adapter, symbol, qty, avg price, date)
 
-### 6.5 — Portfolio Frontend — Charts + Live Updates 🔲
+### 6.5 — Portfolio Frontend — Charts + Live Updates ✅
 *Frontend. Requires 6.3 + 6.4.*
-- [ ] Allocation donut chart (Recharts) — hover segment highlights table row
-- [ ] Equity curve line chart (from transaction history)
-- [ ] Transaction history table (paginated)
-- [ ] Live PnL updates via WebSocket
-- [ ] Interaction tests (donut + table)
+- [x] Allocation donut chart (Recharts) — hover segment highlights table row
+- [x] Equity curve line chart (from transaction history)
+- [x] Transaction history table (paginated)
+- [x] Live PnL updates via WebSocket
+- [x] Interaction tests (donut + table)
 
 ---
 
