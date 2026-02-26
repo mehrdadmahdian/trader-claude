@@ -5,6 +5,9 @@ import type {
   Backtest,
   Notification,
   Portfolio,
+  Position,
+  PortfolioSummary,
+  PortfolioUpdateMsg,
   ReplayCandle,
   ReplayEquityPoint,
   ReplayServerMsg,
@@ -202,25 +205,50 @@ export const useBacktestStore = create<BacktestStore>()((set) => ({
     }),
 }))
 
-// ── Portfolio store ────────────────────────────────────────────────────────
+// ── Portfolio store ─────────────────────────────────────────────────────────
 
 interface PortfolioStore {
   portfolios: Portfolio[]
-  activePortfolio: Portfolio | null
-  setPortfolios: (p: Portfolio[]) => void
-  setActivePortfolio: (p: Portfolio | null) => void
-  updatePortfolio: (p: Portfolio) => void
+  activePortfolioId: number | null
+  positions: Position[]
+  summary: PortfolioSummary | null
+  setPortfolios: (portfolios: Portfolio[]) => void
+  setActivePortfolioId: (id: number | null) => void
+  setPositions: (positions: Position[]) => void
+  setSummary: (summary: PortfolioSummary | null) => void
+  applyLiveUpdate: (msg: PortfolioUpdateMsg) => void
 }
 
 export const usePortfolioStore = create<PortfolioStore>()((set) => ({
   portfolios: [],
-  activePortfolio: null,
+  activePortfolioId: null,
+  positions: [],
+  summary: null,
   setPortfolios: (portfolios) => set({ portfolios }),
-  setActivePortfolio: (activePortfolio) => set({ activePortfolio }),
-  updatePortfolio: (p) =>
-    set((s) => ({
-      portfolios: s.portfolios.map((x) => (x.id === p.id ? p : x)),
-      activePortfolio: s.activePortfolio?.id === p.id ? p : s.activePortfolio,
+  setActivePortfolioId: (id) => set({ activePortfolioId: id }),
+  setPositions: (positions) => set({ positions }),
+  setSummary: (summary) => set({ summary }),
+  applyLiveUpdate: (msg) =>
+    set((state) => ({
+      summary: state.summary
+        ? {
+            ...state.summary,
+            total_value: msg.total_value,
+            total_pnl: msg.total_pnl,
+            total_pnl_pct: msg.total_pnl_pct,
+          }
+        : null,
+      positions: state.positions.map((pos) => {
+        const update = msg.positions.find((p) => p.id === pos.id)
+        if (!update) return pos
+        return {
+          ...pos,
+          current_price: update.current_price,
+          unrealized_pnl: update.unrealized_pnl,
+          unrealized_pnl_pct: update.unrealized_pnl_pct,
+          current_value: pos.quantity * update.current_price,
+        }
+      }),
     })),
 }))
 

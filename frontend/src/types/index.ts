@@ -184,21 +184,115 @@ export interface Trade {
   fee: number
 }
 
-// ── Portfolio types ────────────────────────────────────────────────────────
+// ── Portfolio types (Phase 6) ───────────────────────────────────────────────
+
+export type PortfolioType = 'manual' | 'paper' | 'live'
+export type TransactionType = 'buy' | 'sell' | 'deposit' | 'withdrawal'
 
 export interface Portfolio {
   id: number
   name: string
-  strategy_name: string
-  symbol: string
-  market: string
-  timeframe: string
-  params: Record<string, unknown>
+  description: string
+  type: PortfolioType
+  currency: string
+  strategy_name?: string
+  symbol?: string
+  market?: string
   is_live: boolean
   is_active: boolean
   initial_cash: number
   current_cash: number
   current_value: number
+  created_at: string
+  updated_at: string
+}
+
+export interface Position {
+  id: number
+  portfolio_id: number
+  adapter_id: string
+  symbol: string
+  market: string
+  quantity: number
+  avg_cost: number
+  current_price: number
+  current_value: number
+  unrealized_pnl: number
+  unrealized_pnl_pct: number
+  opened_at: string
+}
+
+export interface Transaction {
+  id: number
+  portfolio_id: number
+  position_id?: number
+  type: TransactionType
+  adapter_id: string
+  symbol: string
+  quantity: number
+  price: number
+  fee: number
+  notes: string
+  executed_at: string
+  created_at: string
+}
+
+export interface PortfolioSummary {
+  portfolio_id: number
+  total_value: number
+  total_cost: number
+  total_pnl: number
+  total_pnl_pct: number
+  day_change_pct: number
+}
+
+export interface PortfolioUpdateMsg {
+  type: 'portfolio_update'
+  portfolio_id: number
+  total_value: number
+  total_pnl: number
+  total_pnl_pct: number
+  positions: Array<{
+    id: number
+    symbol: string
+    current_price: number
+    unrealized_pnl: number
+    unrealized_pnl_pct: number
+  }>
+}
+
+export interface CreatePortfolioReq {
+  name: string
+  description?: string
+  type: PortfolioType
+  currency: string
+  initial_cash: number
+}
+
+export interface AddPositionReq {
+  adapter_id: string
+  symbol: string
+  market: string
+  quantity: number
+  avg_cost: number
+  opened_at: string
+}
+
+export interface UpdatePositionReq {
+  quantity: number
+  avg_cost: number
+}
+
+export interface AddTransactionReq {
+  position_id?: number
+  type: TransactionType
+  adapter_id?: string
+  symbol?: string
+  quantity: number
+  price: number
+  fee?: number
+  notes?: string
+  executed_at: string
 }
 
 // ── Alert types ────────────────────────────────────────────────────────────
