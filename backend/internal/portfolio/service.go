@@ -212,6 +212,14 @@ func (s *Service) UpdatePosition(ctx context.Context, positionID int64, req Upda
 	return &pos, nil
 }
 
+func (s *Service) GetPosition(ctx context.Context, positionID int64) (*models.Position, error) {
+	var pos models.Position
+	if err := s.db.WithContext(ctx).First(&pos, positionID).Error; err != nil {
+		return nil, err
+	}
+	return &pos, nil
+}
+
 func (s *Service) DeletePosition(ctx context.Context, positionID int64) error {
 	return s.db.WithContext(ctx).Delete(&models.Position{}, positionID).Error
 }

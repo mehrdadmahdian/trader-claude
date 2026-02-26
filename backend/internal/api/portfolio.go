@@ -141,9 +141,18 @@ func (h *portfolioHandler) addPosition(c *fiber.Ctx) error {
 }
 
 func (h *portfolioHandler) updatePosition(c *fiber.Ctx) error {
+	portfolioID, err := parsePortfolioID(c)
+	if err != nil {
+		return err
+	}
 	posID, err := parsePosID(c)
 	if err != nil {
 		return err
+	}
+	// Verify position belongs to this portfolio
+	existing, err := h.svc.GetPosition(c.Context(), posID)
+	if err != nil || existing.PortfolioID != portfolioID {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "position not found"})
 	}
 	var req portfolio.UpdatePositionReq
 	if err := c.BodyParser(&req); err != nil {
@@ -157,9 +166,18 @@ func (h *portfolioHandler) updatePosition(c *fiber.Ctx) error {
 }
 
 func (h *portfolioHandler) deletePosition(c *fiber.Ctx) error {
+	portfolioID, err := parsePortfolioID(c)
+	if err != nil {
+		return err
+	}
 	posID, err := parsePosID(c)
 	if err != nil {
 		return err
+	}
+	// Verify position belongs to this portfolio
+	existing, err := h.svc.GetPosition(c.Context(), posID)
+	if err != nil || existing.PortfolioID != portfolioID {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "position not found"})
 	}
 	if err := h.svc.DeletePosition(c.Context(), posID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
@@ -193,8 +211,11 @@ func (h *portfolioHandler) listTransactions(c *fiber.Ctx) error {
 	if page < 1 {
 		page = 1
 	}
-	if limit < 1 || limit > 100 {
-		limit = 20
+	if limit < 1 {
+		limit = 1
+	}
+	if limit > 100 {
+		limit = 100
 	}
 	txs, total, err := h.svc.ListTransactions(c.Context(), id, page, limit)
 	if err != nil {
