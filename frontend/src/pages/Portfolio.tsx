@@ -127,16 +127,18 @@ export function Portfolio() {
         onClose={() => setShowNewPortfolioModal(false)}
       />
 
-      <AddPositionModal
-        key={editingPosition?.id ?? 'new'}
-        open={showAddPosition || !!editingPosition}
-        portfolioId={activePortfolioId ?? 0}
-        editingPosition={editingPosition}
-        onClose={() => {
-          setShowAddPosition(false)
-          setEditingPosition(null)
-        }}
-      />
+      {activePortfolioId && (
+        <AddPositionModal
+          key={editingPosition?.id ?? 'new'}
+          open={showAddPosition || !!editingPosition}
+          portfolioId={activePortfolioId}
+          editingPosition={editingPosition}
+          onClose={() => {
+            setShowAddPosition(false)
+            setEditingPosition(null)
+          }}
+        />
+      )}
     </div>
   )
 }

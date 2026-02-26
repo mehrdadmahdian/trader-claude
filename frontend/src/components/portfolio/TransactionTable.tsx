@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { fetchTransactions } from '@/api/portfolio'
@@ -10,6 +10,10 @@ interface Props {
 
 export function TransactionTable({ portfolioId, onAddTransaction }: Props) {
   const [page, setPage] = useState(1)
+
+  useEffect(() => {
+    setPage(1)
+  }, [portfolioId])
 
   const { data } = useQuery({
     queryKey: ['transactions', portfolioId, page],
@@ -75,7 +79,7 @@ export function TransactionTable({ portfolioId, onAddTransaction }: Props) {
                   {tx.quantity > 0 ? tx.quantity : '—'}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums">
-                  ${tx.price.toFixed(2)}
+                  {tx.price > 0 ? `$${tx.price.toFixed(2)}` : '—'}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums">
                   {tx.fee > 0 ? `$${tx.fee.toFixed(2)}` : '—'}
