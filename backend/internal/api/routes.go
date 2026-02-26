@@ -10,6 +10,8 @@ import (
 	"github.com/trader-claude/backend/internal/indicator"
 	"github.com/trader-claude/backend/internal/replay"
 	"github.com/trader-claude/backend/internal/worker"
+	"github.com/trader-claude/backend/internal/portfolio"
+	"github.com/trader-claude/backend/internal/price"
 	"github.com/trader-claude/backend/internal/ws"
 )
 
@@ -56,12 +58,10 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	v1.Post("/indicators/calculate", ih.Calculate)
 
 	// --- Portfolios ---
-	v1.Get("/portfolios", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"data": []interface{}{}, "message": "portfolios endpoint — coming soon"})
-	})
-	v1.Post("/portfolios", func(c *fiber.Ctx) error {
-		return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "portfolio create endpoint — coming soon"})
-	})
+	priceSvc := price.NewService(rdb, "", "")
+	portfolioSvc := portfolio.NewService(db, priceSvc)
+	ph := newPortfolioHandler(portfolioSvc)
+	ph.registerRoutes(v1)
 
 	// --- Alerts ---
 	v1.Get("/alerts", func(c *fiber.Ctx) error {
