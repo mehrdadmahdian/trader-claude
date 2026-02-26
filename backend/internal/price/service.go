@@ -92,6 +92,10 @@ func (s *Service) fetchBinancePrice(ctx context.Context, symbol string) (float64
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("HTTP %d from Binance", resp.StatusCode)
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return 0, err
@@ -119,6 +123,10 @@ func (s *Service) fetchYahooPrice(ctx context.Context, symbol string) (float64, 
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("HTTP %d from Yahoo Finance", resp.StatusCode)
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return 0, err
@@ -139,5 +147,9 @@ func (s *Service) fetchYahooPrice(ctx context.Context, symbol string) (float64, 
 	if len(result.Chart.Result) == 0 {
 		return 0, fmt.Errorf("no result for symbol %s", symbol)
 	}
-	return result.Chart.Result[0].Meta.RegularMarketPrice, nil
+	price := result.Chart.Result[0].Meta.RegularMarketPrice
+	if price == 0 {
+		return 0, fmt.Errorf("zero price returned for symbol %s", symbol)
+	}
+	return price, nil
 }
