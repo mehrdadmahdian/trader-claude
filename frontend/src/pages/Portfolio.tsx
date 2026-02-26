@@ -4,8 +4,13 @@ import { PortfolioSelector } from '@/components/portfolio/PortfolioSelector'
 import { SummaryCards } from '@/components/portfolio/SummaryCards'
 import { PositionsTable } from '@/components/portfolio/PositionsTable'
 import { AllocationDonut } from '@/components/portfolio/AllocationDonut'
+import { EquityCurveChart } from '@/components/portfolio/EquityCurveChart'
+import { TransactionTable } from '@/components/portfolio/TransactionTable'
+import { NewPortfolioModal } from '@/components/portfolio/NewPortfolioModal'
+import { AddPositionModal } from '@/components/portfolio/AddPositionModal'
 import { fetchPortfolio, fetchPortfolioSummary } from '@/api/portfolio'
 import { usePortfolioStore } from '@/stores'
+import { usePortfolioLive } from '@/hooks/usePortfolioLive'
 import type { Position } from '@/types'
 
 export function Portfolio() {
@@ -15,8 +20,10 @@ export function Portfolio() {
   const [showNewPortfolioModal, setShowNewPortfolioModal] = useState(false)
   const [editingPosition, setEditingPosition] = useState<Position | null>(null)
   const [showAddPosition, setShowAddPosition] = useState(false)
+  const [activeTab, setActiveTab] = useState<'equity' | 'transactions'>('equity')
 
-  // Load portfolio + positions
+  usePortfolioLive(activePortfolioId)
+
   const portfolioQuery = useQuery({
     queryKey: ['portfolio', activePortfolioId],
     queryFn: () => fetchPortfolio(activePortfolioId!),
@@ -29,7 +36,6 @@ export function Portfolio() {
     }
   }, [portfolioQuery.data, setPositions])
 
-  // Load summary
   const summaryQuery = useQuery({
     queryKey: ['portfolio-summary', activePortfolioId],
     queryFn: () => fetchPortfolioSummary(activePortfolioId!),
@@ -45,13 +51,11 @@ export function Portfolio() {
 
   return (
     <div className="space-y-6">
-      {/* Header row */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Portfolio</h1>
         <PortfolioSelector onNewPortfolio={() => setShowNewPortfolioModal(true)} />
       </div>
 
-      {/* Summary cards */}
       <SummaryCards summary={activePortfolioId ? summary : null} />
 
       {!activePortfolioId && (
@@ -62,7 +66,6 @@ export function Portfolio() {
 
       {activePortfolioId && (
         <>
-          {/* Main split: table 60% + donut 40% */}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
             <div className="lg:col-span-3">
               <PositionsTable
@@ -78,27 +81,61 @@ export function Portfolio() {
             </div>
           </div>
 
-          {/* Bottom tabs */}
+          {/* Bottom tabs — raw Tailwind */}
           <div>
-            <div className="flex border-b border-border mb-4">
-              <button className="px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary -mb-px">
+            <div className="flex border-b border-border">
+              <button
+                onClick={() => setActiveTab('equity')}
+                className={`px-4 py-2 text-sm font-medium transition-colors -mb-px ${
+                  activeTab === 'equity'
+                    ? 'border-b-2 border-primary text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
                 Equity Curve
               </button>
-              <button className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => setActiveTab('transactions')}
+                className={`px-4 py-2 text-sm font-medium transition-colors -mb-px ${
+                  activeTab === 'transactions'
+                    ? 'border-b-2 border-primary text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
                 Transactions
               </button>
             </div>
-            <div className="rounded-lg border border-border bg-card p-6 text-muted-foreground text-sm text-center">
-              Equity curve and transactions — implemented in Task 8
+            <div className="mt-4">
+              {activeTab === 'equity' && (
+                <div className="rounded-lg border border-border bg-card p-6">
+                  <EquityCurveChart portfolioId={activePortfolioId} />
+                </div>
+              )}
+              {activeTab === 'transactions' && (
+                <TransactionTable
+                  portfolioId={activePortfolioId}
+                  onAddTransaction={() => setActiveTab('transactions')}
+                />
+              )}
             </div>
           </div>
         </>
       )}
 
-      {/* Suppress unused state warnings — modals wired in Task 8 */}
-      {showNewPortfolioModal && null}
-      {editingPosition && null}
-      {showAddPosition && null}
+      <NewPortfolioModal
+        open={showNewPortfolioModal}
+        onClose={() => setShowNewPortfolioModal(false)}
+      />
+
+      <AddPositionModal
+        open={showAddPosition || !!editingPosition}
+        portfolioId={activePortfolioId ?? 0}
+        editingPosition={editingPosition}
+        onClose={() => {
+          setShowAddPosition(false)
+          setEditingPosition(null)
+        }}
+      />
     </div>
   )
 }
