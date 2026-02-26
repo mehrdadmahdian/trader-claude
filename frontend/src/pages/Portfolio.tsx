@@ -9,7 +9,7 @@ import { usePortfolioStore } from '@/stores'
 import type { Position } from '@/types'
 
 export function Portfolio() {
-  const { activePortfolioId, setActivePortfolioId, setPositions, setSummary, summary, positions } =
+  const { activePortfolioId, setPositions, setSummary, summary, positions } =
     usePortfolioStore()
   const [highlightedSymbol, setHighlightedSymbol] = useState<string | null>(null)
   const [showNewPortfolioModal, setShowNewPortfolioModal] = useState(false)
