@@ -187,6 +187,8 @@ func autoMigrate(db *gorm.DB) error {
 		&models.Backtest{},
 		&models.Trade{},
 		&models.Portfolio{},
+		&models.Position{},
+		&models.Transaction{},
 		&models.Alert{},
 		&models.Notification{},
 		&models.WatchList{},

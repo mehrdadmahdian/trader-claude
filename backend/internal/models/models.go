@@ -192,14 +192,26 @@ func (Trade) TableName() string { return "trades" }
 
 // --- Portfolio ---
 
-// Portfolio represents a live trading or paper trading portfolio
+// PortfolioType classifies how a portfolio is managed
+type PortfolioType string
+
+const (
+	PortfolioTypeManual PortfolioType = "manual"
+	PortfolioTypePaper  PortfolioType = "paper"
+	PortfolioTypeLive   PortfolioType = "live"
+)
+
+// Portfolio represents a live trading, paper trading, or manual portfolio
 type Portfolio struct {
 	ID           int64          `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name         string         `gorm:"type:varchar(200);not null" json:"name"`
-	StrategyName string         `gorm:"type:varchar(100);not null" json:"strategy_name"`
-	Symbol       string         `gorm:"type:varchar(20);not null" json:"symbol"`
-	Market       string         `gorm:"type:varchar(20);not null" json:"market"`
-	Timeframe    string         `gorm:"type:varchar(10);not null" json:"timeframe"`
+	Description  string         `gorm:"type:text" json:"description"`
+	Type         PortfolioType  `gorm:"type:varchar(20);not null;default:'manual'" json:"type"`
+	Currency     string         `gorm:"type:varchar(10);not null;default:'USD'" json:"currency"`
+	StrategyName string         `gorm:"type:varchar(100)" json:"strategy_name"`
+	Symbol       string         `gorm:"type:varchar(20)" json:"symbol"`
+	Market       string         `gorm:"type:varchar(20)" json:"market"`
+	Timeframe    string         `gorm:"type:varchar(10)" json:"timeframe"`
 	Params       JSON           `gorm:"type:json" json:"params"`
 	IsLive       bool           `gorm:"default:false" json:"is_live"`
 	IsActive     bool           `gorm:"default:true" json:"is_active"`
@@ -213,6 +225,58 @@ type Portfolio struct {
 }
 
 func (Portfolio) TableName() string { return "portfolios" }
+
+// --- Position ---
+
+// Position tracks an open holding within a portfolio
+type Position struct {
+	ID               int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	PortfolioID      int64     `gorm:"not null;index" json:"portfolio_id"`
+	AdapterID        string    `gorm:"type:varchar(20);not null" json:"adapter_id"`
+	Symbol           string    `gorm:"type:varchar(20);not null" json:"symbol"`
+	Market           string    `gorm:"type:varchar(20);not null" json:"market"`
+	Quantity         float64   `gorm:"type:decimal(30,8);not null" json:"quantity"`
+	AvgCost          float64   `gorm:"type:decimal(20,8);not null" json:"avg_cost"`
+	CurrentPrice     float64   `gorm:"type:decimal(20,8)" json:"current_price"`
+	CurrentValue     float64   `gorm:"type:decimal(20,8)" json:"current_value"`
+	UnrealizedPnL    float64   `gorm:"type:decimal(20,8)" json:"unrealized_pnl"`
+	UnrealizedPnLPct float64   `gorm:"type:decimal(10,4)" json:"unrealized_pnl_pct"`
+	OpenedAt         time.Time `gorm:"not null" json:"opened_at"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+func (Position) TableName() string { return "positions" }
+
+// --- Transaction ---
+
+// TransactionType classifies the kind of ledger entry
+type TransactionType string
+
+const (
+	TransactionTypeBuy        TransactionType = "buy"
+	TransactionTypeSell       TransactionType = "sell"
+	TransactionTypeDeposit    TransactionType = "deposit"
+	TransactionTypeWithdrawal TransactionType = "withdrawal"
+)
+
+// Transaction records every cash or asset movement within a portfolio
+type Transaction struct {
+	ID          int64           `gorm:"primaryKey;autoIncrement" json:"id"`
+	PortfolioID int64           `gorm:"not null;index" json:"portfolio_id"`
+	PositionID  *int64          `gorm:"index" json:"position_id,omitempty"`
+	Type        TransactionType `gorm:"type:varchar(20);not null" json:"type"`
+	AdapterID   string          `gorm:"type:varchar(20)" json:"adapter_id"`
+	Symbol      string          `gorm:"type:varchar(20)" json:"symbol"`
+	Quantity    float64         `gorm:"type:decimal(30,8)" json:"quantity"`
+	Price       float64         `gorm:"type:decimal(20,8);not null" json:"price"`
+	Fee         float64         `gorm:"type:decimal(20,8);default:0" json:"fee"`
+	Notes       string          `gorm:"type:text" json:"notes"`
+	ExecutedAt  time.Time       `gorm:"not null" json:"executed_at"`
+	CreatedAt   time.Time       `json:"created_at"`
+}
+
+func (Transaction) TableName() string { return "transactions" }
 
 // --- Alert ---
 
