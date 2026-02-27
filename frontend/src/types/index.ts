@@ -303,23 +303,31 @@ export type AlertCondition = 'price_above' | 'price_below' | 'price_change_pct' 
 export interface Alert {
   id: number
   name: string
+  adapter_id: string
   symbol: string
   market: string
   condition: AlertCondition
   threshold: number
+  base_price: number
   status: AlertStatus
   message: string
+  recurring_enabled: boolean
+  cooldown_minutes: number
+  last_fired_at?: string
   triggered_at?: string
   created_at: string
+  updated_at: string
 }
 
 export interface AlertCreateRequest {
   name: string
+  adapter_id: string
   symbol: string
   market: string
   condition: AlertCondition
   threshold: number
-  message?: string
+  recurring_enabled: boolean
+  cooldown_minutes: number
 }
 
 // ── Notification types ─────────────────────────────────────────────────────
@@ -332,6 +340,21 @@ export interface Notification {
   title: string
   body: string
   read: boolean
+  created_at: string
+}
+
+// ── News ---
+
+export interface NewsItem {
+  id: number
+  url: string
+  title: string
+  summary: string
+  source: string
+  published_at: string
+  symbols: string[]
+  sentiment: number // -1 (negative) to 1 (positive)
+  fetched_at: string
   created_at: string
 }
 
