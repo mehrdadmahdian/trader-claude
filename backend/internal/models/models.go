@@ -350,6 +350,7 @@ const (
 	NotificationTypeTrade     NotificationType = "trade"
 	NotificationTypeSystem    NotificationType = "system"
 	NotificationTypeBacktest  NotificationType = "backtest"
+	NotificationTypeSignal    NotificationType = "signal"
 )
 
 // Notification stores system/alert notifications
@@ -378,6 +379,53 @@ type WatchList struct {
 }
 
 func (WatchList) TableName() string { return "watch_lists" }
+
+// --- Monitor ---
+
+// MonitorStatus is the lifecycle state of a monitor
+type MonitorStatus string
+
+const (
+	MonitorStatusActive  MonitorStatus = "active"
+	MonitorStatusPaused  MonitorStatus = "paused"
+	MonitorStatusStopped MonitorStatus = "stopped"
+)
+
+// Monitor stores a live strategy-monitoring configuration
+type Monitor struct {
+	ID              int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	Name            string         `gorm:"type:varchar(200);not null" json:"name"`
+	AdapterID       string         `gorm:"type:varchar(20);not null" json:"adapter_id"`
+	Symbol          string         `gorm:"type:varchar(20);not null;index" json:"symbol"`
+	Market          string         `gorm:"type:varchar(20);not null" json:"market"`
+	Timeframe       string         `gorm:"type:varchar(10);not null" json:"timeframe"`
+	StrategyName    string         `gorm:"type:varchar(100);not null;index" json:"strategy_name"`
+	Params          JSON           `gorm:"type:json" json:"params"`
+	Status          MonitorStatus  `gorm:"type:varchar(20);not null;default:'active';index" json:"status"`
+	NotifyInApp     bool           `gorm:"default:true" json:"notify_in_app"`
+	LastPolledAt    *time.Time     `json:"last_polled_at,omitempty"`
+	LastSignalAt    *time.Time     `json:"last_signal_at,omitempty"`
+	LastSignalDir   string         `gorm:"type:varchar(10)" json:"last_signal_dir"`
+	LastSignalPrice float64        `gorm:"type:decimal(20,8)" json:"last_signal_price"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (Monitor) TableName() string { return "monitors" }
+
+// MonitorSignal stores a strategy signal emitted by a live monitor
+type MonitorSignal struct {
+	ID        int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	MonitorID int64     `gorm:"not null;index" json:"monitor_id"`
+	Direction string    `gorm:"type:varchar(10);not null" json:"direction"` // "long","short","flat"
+	Price     float64   `gorm:"type:decimal(20,8);not null" json:"price"`
+	Strength  float64   `gorm:"type:decimal(5,4);not null" json:"strength"`
+	Metadata  JSON      `gorm:"type:json" json:"metadata,omitempty"`
+	CreatedAt time.Time `gorm:"index" json:"created_at"`
+}
+
+func (MonitorSignal) TableName() string { return "monitor_signals" }
 
 // --- ReplayBookmark ---
 
