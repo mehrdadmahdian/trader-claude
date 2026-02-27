@@ -80,11 +80,9 @@ func executePoll(ctx context.Context, db *gorm.DB, rdb *redis.Client, ds *adapte
 	candles, err := ds.GetCandles(ctx, adapt, mon.Symbol, mon.Market, mon.Timeframe, from, now)
 	if err != nil {
 		log.Printf("[monitor %d] GetCandles failed: %v", monitorID, err)
-		updateLastPolled(ctx, db, monitorID, now)
 		return
 	}
 	if len(candles) == 0 {
-		updateLastPolled(ctx, db, monitorID, now)
 		return
 	}
 
@@ -112,8 +110,8 @@ func executePoll(ctx context.Context, db *gorm.DB, rdb *redis.Client, ds *adapte
 		if sig == nil || sig.Direction == "flat" {
 			continue
 		}
-		// Only collect signals from candles that are newer than the last poll.
-		if mon.LastPolledAt == nil || c.Timestamp.After(*mon.LastPolledAt) {
+		// Only collect signals from candles at or newer than the last poll boundary.
+		if mon.LastPolledAt == nil || !c.Timestamp.Before(*mon.LastPolledAt) {
 			newSignals = append(newSignals, sig)
 		}
 	}
@@ -130,7 +128,7 @@ func executePoll(ctx context.Context, db *gorm.DB, rdb *redis.Client, ds *adapte
 // emitSignal saves a MonitorSignal, creates an in-app Notification (if enabled),
 // and publishes the signal event to Redis pubsub.
 func emitSignal(ctx context.Context, db *gorm.DB, rdb *redis.Client, mon models.Monitor, sig *registry.Signal) {
-	// Save signal to DB
+	// Save signal to DB and update monitor's last signal fields in a single transaction.
 	meta := models.JSON{}
 	for k, v := range sig.Metadata {
 		meta[k] = v
@@ -143,19 +141,19 @@ func emitSignal(ctx context.Context, db *gorm.DB, rdb *redis.Client, mon models.
 		Metadata:  meta,
 		CreatedAt: sig.Timestamp,
 	}
-	if err := db.WithContext(ctx).Create(&ms).Error; err != nil {
+	now := time.Now()
+	if err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&ms).Error; err != nil {
+			return err
+		}
+		return tx.Model(&models.Monitor{}).Where("id = ?", mon.ID).Updates(map[string]interface{}{
+			"last_signal_at":    now,
+			"last_signal_dir":   sig.Direction,
+			"last_signal_price": sig.Price,
+		}).Error
+	}); err != nil {
 		log.Printf("[monitor %d] failed to save signal: %v", mon.ID, err)
 		return
-	}
-
-	// Update monitor's last signal fields
-	now := time.Now()
-	if err := db.WithContext(ctx).Model(&models.Monitor{}).Where("id = ?", mon.ID).Updates(map[string]interface{}{
-		"last_signal_at":    now,
-		"last_signal_dir":   sig.Direction,
-		"last_signal_price": sig.Price,
-	}).Error; err != nil {
-		log.Printf("[monitor %d] failed to update last signal: %v", mon.ID, err)
 	}
 
 	// Create in-app notification if enabled
@@ -194,7 +192,9 @@ func emitSignal(ctx context.Context, db *gorm.DB, rdb *redis.Client, mon models.
 	}
 	b, err := json.Marshal(evt)
 	if err == nil {
-		rdb.Publish(ctx, signalChannel, string(b))
+		if pubErr := rdb.Publish(ctx, signalChannel, string(b)).Err(); pubErr != nil {
+			log.Printf("[monitor %d] failed to publish signal to Redis: %v", mon.ID, pubErr)
+		}
 	}
 }
 
