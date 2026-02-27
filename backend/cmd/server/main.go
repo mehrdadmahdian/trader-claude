@@ -22,6 +22,7 @@ import (
 	"github.com/trader-claude/backend/internal/adapter"
 	"github.com/trader-claude/backend/internal/api"
 	"github.com/trader-claude/backend/internal/config"
+	monpkg "github.com/trader-claude/backend/internal/monitor"
 	"github.com/trader-claude/backend/internal/models"
 	"github.com/trader-claude/backend/internal/news"
 	"github.com/trader-claude/backend/internal/price"
@@ -113,6 +114,10 @@ func main() {
 	alertEval := alertpkg.NewEvaluator(db, priceSvcMain, rdb)
 	alertEval.Start(context.Background())
 
+	// Start monitor manager
+	monitorMgr := monpkg.NewManager(db, rdb, ds, pool)
+	monitorMgr.Start(context.Background())
+
 	// 6. Setup Fiber app
 	app := fiber.New(fiber.Config{
 		AppName:      "trader-claude " + cfg.App.Version,
@@ -140,7 +145,7 @@ func main() {
 	}))
 
 	// 7. Register routes
-	api.RegisterRoutes(app, db, rdb, hub, cfg.App.Version, pool, ds, replayMgr)
+	api.RegisterRoutes(app, db, rdb, hub, cfg.App.Version, pool, ds, replayMgr, monitorMgr)
 
 	// 8. Start server
 	addr := fmt.Sprintf(":%d", cfg.App.Port)
@@ -157,6 +162,7 @@ func main() {
 	<-quit
 
 	log.Println("shutting down...")
+	monitorMgr.Stop()
 	pool.Stop()
 
 	shutCtx, shutCancel := context.WithTimeout(context.Background(), 5*time.Second)

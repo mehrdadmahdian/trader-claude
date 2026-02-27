@@ -8,6 +8,7 @@ import (
 
 	"github.com/trader-claude/backend/internal/adapter"
 	"github.com/trader-claude/backend/internal/indicator"
+	"github.com/trader-claude/backend/internal/monitor"
 	"github.com/trader-claude/backend/internal/replay"
 	"github.com/trader-claude/backend/internal/worker"
 	"github.com/trader-claude/backend/internal/portfolio"
@@ -16,7 +17,7 @@ import (
 )
 
 // RegisterRoutes wires all HTTP and WebSocket routes onto the Fiber app
-func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub, version string, pool *worker.WorkerPool, ds *adapter.DataService, mgr *replay.Manager) {
+func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub, version string, pool *worker.WorkerPool, ds *adapter.DataService, mgr *replay.Manager, monMgr *monitor.Manager) {
 	// Health
 	health := newHealthHandler(db, rdb, version)
 	app.Get("/health", health.check)
@@ -82,6 +83,16 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	v1.Post("/notifications/read-all", nfh.markAllRead)
 	v1.Get("/notifications/unread-count", nfh.unreadCount)
 
+	// --- Monitors ---
+	mnh := newMonitorHandler(db, monMgr)
+	v1.Post("/monitors", mnh.createMonitor)
+	v1.Get("/monitors", mnh.listMonitors)
+	v1.Get("/monitors/:id", mnh.getMonitor)
+	v1.Put("/monitors/:id", mnh.updateMonitor)
+	v1.Delete("/monitors/:id", mnh.deleteMonitor)
+	v1.Patch("/monitors/:id/toggle", mnh.toggleMonitor)
+	v1.Get("/monitors/:id/signals", mnh.listSignals)
+
 	// --- WebSocket upgrade middleware ---
 	app.Use("/ws", func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) {
@@ -101,4 +112,7 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 
 	// Notifications WebSocket
 	app.Get("/ws/notifications", websocket.New(nfh.notificationsWS))
+
+	// Monitor signals WebSocket (multiplexed)
+	app.Get("/ws/monitors/signals", websocket.New(signalsWS(rdb)))
 }
