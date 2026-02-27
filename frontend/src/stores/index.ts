@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type {
   Alert,
+  Monitor,
+  MonitorSignal,
   Backtest,
   Notification,
   Portfolio,
@@ -302,4 +304,31 @@ export const useNotificationStore = create<NotificationStore>()((set) => ({
       notifications: s.notifications.map((n) => ({ ...n, read: true })),
       unreadCount: 0,
     })),
+}))
+
+// ── Monitor store ──────────────────────────────────────────────────────────
+
+interface MonitorStore {
+  monitors: Monitor[]
+  setMonitors: (m: Monitor[]) => void
+  addMonitor: (m: Monitor) => void
+  updateMonitor: (m: Monitor) => void
+  removeMonitor: (id: number) => void
+  pendingSignals: MonitorSignal[]
+  addSignal: (s: MonitorSignal) => void
+  clearSignal: (id: number) => void
+}
+
+export const useMonitorStore = create<MonitorStore>()((set) => ({
+  monitors: [],
+  setMonitors: (monitors) => set({ monitors }),
+  addMonitor: (m) => set((s) => ({ monitors: [m, ...s.monitors] })),
+  updateMonitor: (m) =>
+    set((s) => ({ monitors: s.monitors.map((x) => (x.id === m.id ? m : x)) })),
+  removeMonitor: (id) =>
+    set((s) => ({ monitors: s.monitors.filter((x) => x.id !== id) })),
+  pendingSignals: [],
+  addSignal: (sig) => set((s) => ({ pendingSignals: [...s.pendingSignals, sig] })),
+  clearSignal: (id) =>
+    set((s) => ({ pendingSignals: s.pendingSignals.filter((x) => x.id !== id) })),
 }))
