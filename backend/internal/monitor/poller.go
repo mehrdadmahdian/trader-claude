@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	signalChannel = "monitor:signals"
+	// SignalChannel is the Redis pubsub channel for monitor signal events.
+	SignalChannel = "monitor:signals"
 	warmupCandles = 200
 )
 
@@ -192,7 +193,7 @@ func emitSignal(ctx context.Context, db *gorm.DB, rdb *redis.Client, mon models.
 	}
 	b, err := json.Marshal(evt)
 	if err == nil {
-		if pubErr := rdb.Publish(ctx, signalChannel, string(b)).Err(); pubErr != nil {
+		if pubErr := rdb.Publish(ctx, SignalChannel, string(b)).Err(); pubErr != nil {
 			log.Printf("[monitor %d] failed to publish signal to Redis: %v", mon.ID, pubErr)
 		}
 	}
