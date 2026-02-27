@@ -18,10 +18,13 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
+	alertpkg "github.com/trader-claude/backend/internal/alert"
 	"github.com/trader-claude/backend/internal/adapter"
 	"github.com/trader-claude/backend/internal/api"
 	"github.com/trader-claude/backend/internal/config"
 	"github.com/trader-claude/backend/internal/models"
+	"github.com/trader-claude/backend/internal/news"
+	"github.com/trader-claude/backend/internal/price"
 	"github.com/trader-claude/backend/internal/registry"
 	"github.com/trader-claude/backend/internal/replay"
 	"github.com/trader-claude/backend/internal/strategy"
@@ -100,6 +103,15 @@ func main() {
 
 	// Initialize replay manager
 	replayMgr := replay.NewManager()
+
+	// Start news aggregator (fetches RSS every 15 min)
+	newsAgg := news.NewAggregator(db, news.DefaultFeeds)
+	newsAgg.Start(context.Background())
+
+	// Start alert evaluator (checks active alerts every 60 s)
+	priceSvcMain := price.NewService(rdb, "", "")
+	alertEval := alertpkg.NewEvaluator(db, priceSvcMain, rdb)
+	alertEval.Start(context.Background())
 
 	// 6. Setup Fiber app
 	app := fiber.New(fiber.Config{

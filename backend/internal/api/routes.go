@@ -63,24 +63,24 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	ph := newPortfolioHandler(portfolioSvc)
 	ph.registerRoutes(v1)
 
+	// --- News ---
+	nh := newNewsHandler(db)
+	v1.Get("/news", nh.listNews)
+	v1.Get("/news/symbols/:symbol", nh.newsBySymbol)
+
 	// --- Alerts ---
-	v1.Get("/alerts", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"data": []interface{}{}, "message": "alerts endpoint — coming soon"})
-	})
-	v1.Post("/alerts", func(c *fiber.Ctx) error {
-		return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "alert create endpoint — coming soon"})
-	})
-	v1.Delete("/alerts/:id", func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusNoContent)
-	})
+	ah := newAlertHandler(db, priceSvc)
+	v1.Post("/alerts", ah.createAlert)
+	v1.Get("/alerts", ah.listAlerts)
+	v1.Delete("/alerts/:id", ah.deleteAlert)
+	v1.Patch("/alerts/:id/toggle", ah.toggleAlert)
 
 	// --- Notifications ---
-	v1.Get("/notifications", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"data": []interface{}{}, "message": "notifications endpoint — coming soon"})
-	})
-	v1.Patch("/notifications/:id/read", func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusNoContent)
-	})
+	nfh := newNotificationHandler(db, rdb)
+	v1.Get("/notifications", nfh.listNotifications)
+	v1.Patch("/notifications/:id/read", nfh.markRead)
+	v1.Post("/notifications/read-all", nfh.markAllRead)
+	v1.Get("/notifications/unread-count", nfh.unreadCount)
 
 	// --- WebSocket upgrade middleware ---
 	app.Use("/ws", func(c *fiber.Ctx) error {
@@ -98,4 +98,7 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 
 	// Replay WebSocket
 	app.Get("/ws/replay/:replay_id", websocket.New(rh.replayWS))
+
+	// Notifications WebSocket
+	app.Get("/ws/notifications", websocket.New(nfh.notificationsWS))
 }
