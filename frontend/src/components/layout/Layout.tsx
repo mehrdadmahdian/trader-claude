@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { useNotificationWS } from '@/hooks/useNotifications'
+import { SignalToast } from '@/components/SignalToast'
 
 export function Layout() {
   useNotificationWS() // connect to /ws/notifications on mount
@@ -15,6 +16,7 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
+      <SignalToast />
     </div>
   )
 }
