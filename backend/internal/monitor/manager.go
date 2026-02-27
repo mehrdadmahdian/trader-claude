@@ -136,12 +136,20 @@ func (m *Manager) scheduleNext(monitorID int64, interval time.Duration) {
 			Task: func(jobCtx context.Context) error {
 				defer m.active.Delete(monitorID)
 				executePoll(jobCtx, m.db, m.rdb, m.ds, monitorID)
+				// Only reschedule if the manager is still running AND this monitor
+				// was not paused or removed while the job was in-flight.
 				select {
 				case <-m.ctx.Done():
 					return nil
 				default:
-					m.scheduleNext(monitorID, interval)
 				}
+				m.mu.Lock()
+				_, timerExists := m.timers[monitorID]
+				m.mu.Unlock()
+				if !timerExists {
+					return nil
+				}
+				m.scheduleNext(monitorID, interval)
 				return nil
 			},
 		})
