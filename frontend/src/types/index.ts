@@ -518,3 +518,52 @@ export interface CalculateRequest {
     volume: number
   }>
 }
+
+// ── Monitor types (Phase 8) ─────────────────────────────────────────────────
+
+export interface Monitor {
+  id: number
+  name: string
+  adapter_id: string
+  symbol: string
+  market: string
+  timeframe: string
+  strategy_name: string
+  params: Record<string, unknown>
+  status: 'active' | 'paused' | 'stopped'
+  notify_in_app: boolean
+  last_polled_at?: string
+  last_signal_at?: string
+  last_signal_dir?: string
+  last_signal_price?: number
+  created_at: string
+  updated_at: string
+}
+
+export interface MonitorSignal {
+  id: number
+  monitor_id: number
+  direction: 'long' | 'short' | 'flat'
+  price: number
+  strength: number
+  metadata?: Record<string, unknown>
+  created_at: string
+}
+
+export interface MonitorCreateRequest {
+  name?: string
+  adapter_id: string
+  symbol: string
+  market: string
+  timeframe: string
+  strategy_name: string
+  params?: Record<string, unknown>
+  notify_in_app?: boolean
+}
+
+export interface MonitorSignalsResponse {
+  data: MonitorSignal[]
+  total: number
+  limit: number
+  offset: number
+}
