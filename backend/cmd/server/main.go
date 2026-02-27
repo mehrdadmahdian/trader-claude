@@ -191,6 +191,7 @@ func autoMigrate(db *gorm.DB) error {
 		&models.Transaction{},
 		&models.Alert{},
 		&models.Notification{},
+		&models.NewsItem{},
 		&models.WatchList{},
 		&models.ReplayBookmark{},
 	)

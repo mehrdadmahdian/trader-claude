@@ -302,20 +302,43 @@ const (
 
 // Alert stores price/volume/custom alert definitions
 type Alert struct {
-	ID          int64          `gorm:"primaryKey;autoIncrement" json:"id"`
-	Name        string         `gorm:"type:varchar(200);not null" json:"name"`
-	Symbol      string         `gorm:"type:varchar(20);not null;index" json:"symbol"`
-	Market      string         `gorm:"type:varchar(20);not null" json:"market"`
-	Condition   AlertCondition `gorm:"type:varchar(30);not null" json:"condition"`
-	Threshold   float64        `gorm:"type:decimal(20,8);not null" json:"threshold"`
-	Status      AlertStatus    `gorm:"type:varchar(20);not null;default:'active';index" json:"status"`
-	Message     string         `gorm:"type:text" json:"message"`
-	TriggeredAt *time.Time     `json:"triggered_at,omitempty"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	ID               int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	Name             string         `gorm:"type:varchar(200);not null" json:"name"`
+	AdapterID        string         `gorm:"type:varchar(20);not null;default:'binance'" json:"adapter_id"`
+	Symbol           string         `gorm:"type:varchar(20);not null;index" json:"symbol"`
+	Market           string         `gorm:"type:varchar(20);not null" json:"market"`
+	Condition        AlertCondition `gorm:"type:varchar(30);not null" json:"condition"`
+	Threshold        float64        `gorm:"type:decimal(20,8);not null" json:"threshold"`
+	BasePrice        float64        `gorm:"type:decimal(20,8);default:0" json:"base_price"`
+	Status           AlertStatus    `gorm:"type:varchar(20);not null;default:'active';index" json:"status"`
+	Message          string         `gorm:"type:text" json:"message"`
+	RecurringEnabled bool           `gorm:"default:true" json:"recurring_enabled"`
+	CooldownMinutes  int            `gorm:"default:60" json:"cooldown_minutes"`
+	LastFiredAt      *time.Time     `json:"last_fired_at,omitempty"`
+	TriggeredAt      *time.Time     `json:"triggered_at,omitempty"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
 }
 
 func (Alert) TableName() string { return "alerts" }
+
+// --- NewsItem ---
+
+// NewsItem stores a de-duplicated RSS article
+type NewsItem struct {
+	ID          int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	URL         string    `gorm:"type:varchar(2048);uniqueIndex" json:"url"`
+	Title       string    `gorm:"type:varchar(512);not null" json:"title"`
+	Summary     string    `gorm:"type:text" json:"summary"`
+	Source      string    `gorm:"type:varchar(64);not null;index" json:"source"`
+	PublishedAt time.Time `gorm:"index" json:"published_at"`
+	Symbols     JSONArray `gorm:"type:json" json:"symbols"`
+	Sentiment   float64   `gorm:"type:decimal(4,3)" json:"sentiment"`
+	FetchedAt   time.Time `json:"fetched_at"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+func (NewsItem) TableName() string { return "news_items" }
 
 // --- Notification ---
 
