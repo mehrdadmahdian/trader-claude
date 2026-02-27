@@ -205,43 +205,41 @@
 
 ---
 
-## Phase 7 — News, Events & Alerts 🔲
+## Phase 7 — News, Events & Alerts ✅
 
-### 7.1 — News Aggregator 🔲
+### 7.1 — News Aggregator ✅
 *Backend. No dependencies.*
-- [ ] `internal/news/` — runs every 15 min
-- [ ] CryptoPanic API + NewsAPI + RSS fallback (`gofeed`: Reuters, CoinDesk)
-- [ ] Dedup by URL, tag with symbols from title + summary
-- [ ] Tests: dedup logic, symbol tagging
+- [x] `internal/news/` — runs every 15 min
+- [x] CryptoPanic API + NewsAPI + RSS fallback (`gofeed`: Reuters, CoinDesk)
+- [x] Dedup by URL, tag with symbols from title + summary
+- [x] Tests: dedup logic, symbol tagging
 
-### 7.2 — News API 🔲
+### 7.2 — News API ✅
 *Backend. Requires 7.1.*
-- [ ] `GET /api/v1/news?symbols=&limit=&offset=&from=&to=`
-- [ ] `GET /api/v1/news/symbols/:symbol`
-- [ ] `GET /api/v1/candles?...&include_news=true` — news flags in candle response
+- [x] `GET /api/v1/news?symbols=&limit=&offset=&from=&to=`
+- [x] `GET /api/v1/news/symbols/:symbol`
+- [x] `GET /api/v1/candles?...&include_news=true` — news flags in candle response
 
-### 7.3 — Alert Evaluator + Notification System 🔲
+### 7.3 — Alert Evaluator + Notification System ✅
 *Backend. No dependencies.*
-- [ ] `internal/alert/` — runs every 60s
-- [ ] Types: `price_above`, `price_below`, `price_change_pct`, `rsi_overbought`, `rsi_oversold`
-- [ ] On fire: create Notification, publish to Redis `notifications:new`, mark triggered/recurring
-- [ ] Alert API: `POST/GET/DELETE /api/v1/alerts`, `PATCH /api/v1/alerts/:id/toggle`
-- [ ] Notification API: `GET /api/v1/notifications`, `PATCH /:id/read`, `POST /read-all`
-- [ ] `WS /ws/notifications` — real-time push
-- [ ] Tests: all 5 condition types, WS delivery
+- [x] `internal/alert/` — runs every 60s
+- [x] Types: `price_above`, `price_below`, `price_change_pct`, `rsi_overbought`, `rsi_oversold`
+- [x] On fire: create Notification, publish to Redis `notifications:new`, mark triggered/recurring
+- [x] Alert API: `POST/GET/DELETE /api/v1/alerts`, `PATCH /api/v1/alerts/:id/toggle`
+- [x] Notification API: `GET /api/v1/notifications`, `PATCH /:id/read`, `POST /read-all`
+- [x] `WS /ws/notifications` — real-time push
+- [x] Tests: all 5 condition types, WS delivery
 
-### 7.4 — Frontend News Panel + Chart Markers 🔲
+### 7.4 — Frontend News Panel + Chart Markers ✅
 *Frontend. Requires 7.2.*
-- [ ] Chart page: collapsible news side panel, scrollable feed (source badge, headline, time ago, sentiment dot)
-- [ ] Chart timeline: triangular flag icons for news events → popover (headline + "Read more")
+- [x] Chart page: collapsible news side panel, scrollable feed (source badge, headline, time ago, sentiment dot)
+- [x] Chart timeline: triangular flag icons for news events → popover (headline + "Read more")
 
-### 7.5 — Frontend Alerts + Notification Bell 🔲
+### 7.5 — Frontend Alerts + Notification Bell ✅
 *Frontend. Requires 7.3.*
-- [ ] Alerts page: table of active rules, "+" modal (type, symbol, threshold, channels), status + last-fired
-- [ ] Notification bell: unread badge, dropdown with 5 recent, "View all" → `/notifications`
-- [ ] Bell animation + count increment on new WS notification
-
----
+- [x] Alerts page: table of active rules, "+" modal (type, symbol, threshold, channels), status + last-fired
+- [x] Notification bell: unread badge, dropdown with 5 recent, "View all" → `/notifications`
+- [x] Bell animation + count increment on new WS notification
 
 ## Phase 8 — Live Market Monitor & Signal Alerts 🔲
 
