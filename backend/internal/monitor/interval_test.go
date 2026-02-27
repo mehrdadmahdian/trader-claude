@@ -27,13 +27,24 @@ func TestCalcPollInterval(t *testing.T) {
 }
 
 func TestTfDuration(t *testing.T) {
-	if tfDuration("1h") != time.Hour {
-		t.Error("1h should be 1 hour")
+	cases := []struct {
+		tf   string
+		want time.Duration
+	}{
+		{"1m", time.Minute},
+		{"5m", 5 * time.Minute},
+		{"15m", 15 * time.Minute},
+		{"30m", 30 * time.Minute},
+		{"1h", time.Hour},
+		{"4h", 4 * time.Hour},
+		{"1d", 24 * time.Hour},
+		{"1w", 7 * 24 * time.Hour},
+		{"unknown", time.Hour},
 	}
-	if tfDuration("1d") != 24*time.Hour {
-		t.Error("1d should be 24 hours")
-	}
-	if tfDuration("unknown") != time.Hour {
-		t.Error("unknown should default to 1 hour")
+	for _, tc := range cases {
+		got := tfDuration(tc.tf)
+		if got != tc.want {
+			t.Errorf("tfDuration(%q) = %v, want %v", tc.tf, got, tc.want)
+		}
 	}
 }
