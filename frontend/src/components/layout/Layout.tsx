@@ -1,8 +1,11 @@
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
+import { useNotificationWS } from '@/hooks/useNotifications'
 
 export function Layout() {
+  useNotificationWS() // connect to /ws/notifications on mount
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar />
