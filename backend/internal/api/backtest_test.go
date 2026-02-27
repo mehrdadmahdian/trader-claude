@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
@@ -14,19 +15,24 @@ import (
 	"github.com/trader-claude/backend/internal/strategy"
 )
 
+// registerStrategiesOnce guards registerTestStrategies so it is safe under -race.
+var registerStrategiesOnce sync.Once
+
 // registerTestStrategies registers a clean set of strategies for tests.
-// It is safe to call multiple times because the global StrategyRegistry is a
-// singleton — we skip re-registration if already present.
+// It uses sync.Once to guarantee the registration happens exactly once across
+// all parallel test goroutines, eliminating any TOCTOU race.
 func registerTestStrategies() {
-	if !registry.Strategies().Exists("ema_crossover") {
-		registry.Strategies().Register("ema_crossover", func() registry.Strategy { return &strategy.EMACrossover{} })
-	}
-	if !registry.Strategies().Exists("rsi") {
-		registry.Strategies().Register("rsi", func() registry.Strategy { return &strategy.RSIStrategy{} })
-	}
-	if !registry.Strategies().Exists("macd") {
-		registry.Strategies().Register("macd", func() registry.Strategy { return &strategy.MACDSignal{} })
-	}
+	registerStrategiesOnce.Do(func() {
+		if !registry.Strategies().Exists("ema_crossover") {
+			registry.Strategies().Register("ema_crossover", func() registry.Strategy { return &strategy.EMACrossover{} }) //nolint:errcheck
+		}
+		if !registry.Strategies().Exists("rsi") {
+			registry.Strategies().Register("rsi", func() registry.Strategy { return &strategy.RSIStrategy{} }) //nolint:errcheck
+		}
+		if !registry.Strategies().Exists("macd") {
+			registry.Strategies().Register("macd", func() registry.Strategy { return &strategy.MACDSignal{} }) //nolint:errcheck
+		}
+	})
 }
 
 // newTestBacktestApp creates a minimal Fiber app with all backtest/strategy
