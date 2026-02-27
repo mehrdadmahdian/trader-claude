@@ -1,6 +1,8 @@
 package api
 
 import (
+	"errors"
+
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 
@@ -88,7 +90,10 @@ func (h *monitorHandler) getMonitor(c *fiber.Ctx) error {
 	}
 	var mon models.Monitor
 	if err := h.db.First(&mon, id).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.JSON(mon)
 }
@@ -101,7 +106,10 @@ func (h *monitorHandler) updateMonitor(c *fiber.Ctx) error {
 	}
 	var mon models.Monitor
 	if err := h.db.First(&mon, id).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	var body struct {
 		Name        string `json:"name"`
@@ -121,6 +129,9 @@ func (h *monitorHandler) updateMonitor(c *fiber.Ctx) error {
 		if err := h.db.Model(&mon).Updates(updates).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
+		if err := h.db.First(&mon, id).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
 	}
 	return c.JSON(mon)
 }
@@ -131,10 +142,10 @@ func (h *monitorHandler) deleteMonitor(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
 	}
-	h.mgr.Remove(int64(id))
 	if err := h.db.Delete(&models.Monitor{}, id).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
+	h.mgr.Remove(int64(id))
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
@@ -147,7 +158,10 @@ func (h *monitorHandler) toggleMonitor(c *fiber.Ctx) error {
 	}
 	var mon models.Monitor
 	if err := h.db.First(&mon, id).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	switch mon.Status {
@@ -165,7 +179,9 @@ func (h *monitorHandler) toggleMonitor(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "monitor is stopped"})
 	}
 
-	h.db.First(&mon, id) // reload
+	if err := h.db.First(&mon, id).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
 	return c.JSON(mon)
 }
 
@@ -181,8 +197,19 @@ func (h *monitorHandler) listSignals(c *fiber.Ctx) error {
 	}
 	offset := c.QueryInt("offset", 0)
 
+	// Verify monitor exists
+	var mon models.Monitor
+	if err := h.db.Select("id").First(&mon, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
 	var total int64
-	h.db.Model(&models.MonitorSignal{}).Where("monitor_id = ?", id).Count(&total)
+	if err := h.db.Model(&models.MonitorSignal{}).Where("monitor_id = ?", id).Count(&total).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
 
 	var signals []models.MonitorSignal
 	if err := h.db.Where("monitor_id = ?", id).
