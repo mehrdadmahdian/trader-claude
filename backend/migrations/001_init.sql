@@ -124,19 +124,44 @@ CREATE TABLE IF NOT EXISTS `portfolios` (
 
 -- ── alerts ────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS `alerts` (
-  `id`           BIGINT AUTO_INCREMENT PRIMARY KEY,
-  `name`         VARCHAR(200) NOT NULL,
-  `symbol`       VARCHAR(20)  NOT NULL,
-  `market`       VARCHAR(20)  NOT NULL,
-  `condition`    VARCHAR(30)  NOT NULL,
-  `threshold`    DECIMAL(20,8) NOT NULL,
-  `status`       VARCHAR(20)  NOT NULL DEFAULT 'active',
-  `message`      TEXT         DEFAULT NULL,
-  `triggered_at` DATETIME(3)  DEFAULT NULL,
-  `created_at`   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  `updated_at`   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-  KEY `idx_alerts_symbol` (`symbol`),
-  KEY `idx_alerts_status` (`status`)
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(200) NOT NULL,
+  `adapter_id` VARCHAR(20) NOT NULL DEFAULT 'binance',
+  `symbol` VARCHAR(20) NOT NULL,
+  `market` VARCHAR(20) NOT NULL,
+  `condition` VARCHAR(30) NOT NULL,
+  `threshold` DECIMAL(20,8) NOT NULL,
+  `base_price` DECIMAL(20,8) NOT NULL DEFAULT 0,
+  `status` VARCHAR(20) NOT NULL DEFAULT 'active',
+  `message` TEXT,
+  `recurring_enabled` BOOLEAN NOT NULL DEFAULT TRUE,
+  `cooldown_minutes` INT NOT NULL DEFAULT 60,
+  `last_fired_at` DATETIME NULL,
+  `triggered_at` DATETIME NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_alerts_symbol` (`symbol`),
+  INDEX `idx_alerts_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ── news_items ────────────────────────────────────────────────────────────────
+-- News items (RSS aggregator, de-duplicated by URL)
+CREATE TABLE IF NOT EXISTS `news_items` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `url` VARCHAR(2048) NOT NULL,
+  `title` VARCHAR(512) NOT NULL,
+  `summary` TEXT,
+  `source` VARCHAR(64) NOT NULL,
+  `published_at` DATETIME NOT NULL,
+  `symbols` JSON,
+  `sentiment` DECIMAL(4,3) NOT NULL DEFAULT 0,
+  `fetched_at` DATETIME NOT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `idx_news_items_url` (`url`(255)),
+  INDEX `idx_news_items_source` (`source`),
+  INDEX `idx_news_items_published_at` (`published_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── notifications ─────────────────────────────────────────────────────────────
