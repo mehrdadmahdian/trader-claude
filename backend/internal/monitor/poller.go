@@ -1,0 +1,208 @@
+package monitor
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
+
+	"github.com/trader-claude/backend/internal/adapter"
+	"github.com/trader-claude/backend/internal/models"
+	"github.com/trader-claude/backend/internal/registry"
+)
+
+const (
+	signalChannel = "monitor:signals"
+	warmupCandles = 200
+)
+
+// signalEvent is the payload published to Redis and forwarded over WebSocket.
+type signalEvent struct {
+	ID        int64       `json:"id"`
+	MonitorID int64       `json:"monitor_id"`
+	Direction string      `json:"direction"`
+	Price     float64     `json:"price"`
+	Strength  float64     `json:"strength"`
+	Metadata  models.JSON `json:"metadata,omitempty"`
+	CreatedAt time.Time   `json:"created_at"`
+}
+
+// executePoll fetches the most recent candles, runs the strategy, and
+// emits a signal if any new candles (since LastPolledAt) produce one.
+//
+// Strategy state is NOT persisted between polls — strategies keep state in
+// struct fields and are re-warmed from the last 200 candles on every poll.
+func executePoll(ctx context.Context, db *gorm.DB, rdb *redis.Client, ds *adapter.DataService, monitorID int64) {
+	// 1. Load monitor
+	var mon models.Monitor
+	if err := db.WithContext(ctx).First(&mon, monitorID).Error; err != nil {
+		log.Printf("[monitor %d] load failed: %v", monitorID, err)
+		return
+	}
+	if mon.Status != models.MonitorStatusActive {
+		return
+	}
+
+	// 2. Get adapter
+	adapt, err := registry.Adapters().Get(mon.AdapterID)
+	if err != nil {
+		log.Printf("[monitor %d] adapter %q not found: %v", monitorID, mon.AdapterID, err)
+		return
+	}
+
+	// 3. Create and initialise strategy
+	strat, err := registry.Strategies().Create(mon.StrategyName)
+	if err != nil {
+		log.Printf("[monitor %d] strategy %q not found: %v", monitorID, mon.StrategyName, err)
+		return
+	}
+	params := make(map[string]interface{})
+	if mon.Params != nil {
+		for k, v := range mon.Params {
+			params[k] = v
+		}
+	}
+	if err := strat.Init(params); err != nil {
+		log.Printf("[monitor %d] strategy init failed: %v", monitorID, err)
+		return
+	}
+
+	// 4. Compute candle window: last warmupCandles candles
+	now := time.Now().UTC()
+	tfDur := tfDuration(mon.Timeframe)
+	from := now.Add(-time.Duration(warmupCandles) * tfDur)
+
+	// 5. Fetch candles
+	candles, err := ds.GetCandles(ctx, adapt, mon.Symbol, mon.Market, mon.Timeframe, from, now)
+	if err != nil {
+		log.Printf("[monitor %d] GetCandles failed: %v", monitorID, err)
+		updateLastPolled(ctx, db, monitorID, now)
+		return
+	}
+	if len(candles) == 0 {
+		updateLastPolled(ctx, db, monitorID, now)
+		return
+	}
+
+	// 6. Run strategy on all candles; collect signals from candles after LastPolledAt
+	var state registry.StrategyState
+	var newSignals []*registry.Signal
+
+	for _, c := range candles {
+		rc := registry.Candle{
+			Symbol:    c.Symbol,
+			Market:    c.Market,
+			Timeframe: c.Timeframe,
+			Timestamp: c.Timestamp,
+			Open:      c.Open,
+			High:      c.High,
+			Low:       c.Low,
+			Close:     c.Close,
+			Volume:    c.Volume,
+		}
+		sig, err := strat.OnCandle(rc, &state)
+		if err != nil {
+			log.Printf("[monitor %d] strategy error on candle %v: %v", monitorID, c.Timestamp, err)
+			continue
+		}
+		if sig == nil || sig.Direction == "flat" {
+			continue
+		}
+		// Only collect signals from candles that are newer than the last poll.
+		if mon.LastPolledAt == nil || c.Timestamp.After(*mon.LastPolledAt) {
+			newSignals = append(newSignals, sig)
+		}
+	}
+
+	// 7. Persist and broadcast each new signal
+	for _, sig := range newSignals {
+		emitSignal(ctx, db, rdb, mon, sig)
+	}
+
+	// 8. Update LastPolledAt
+	updateLastPolled(ctx, db, monitorID, now)
+}
+
+// emitSignal saves a MonitorSignal, creates an in-app Notification (if enabled),
+// and publishes the signal event to Redis pubsub.
+func emitSignal(ctx context.Context, db *gorm.DB, rdb *redis.Client, mon models.Monitor, sig *registry.Signal) {
+	// Save signal to DB
+	meta := models.JSON{}
+	for k, v := range sig.Metadata {
+		meta[k] = v
+	}
+	ms := models.MonitorSignal{
+		MonitorID: mon.ID,
+		Direction: sig.Direction,
+		Price:     sig.Price,
+		Strength:  sig.Strength,
+		Metadata:  meta,
+		CreatedAt: sig.Timestamp,
+	}
+	if err := db.WithContext(ctx).Create(&ms).Error; err != nil {
+		log.Printf("[monitor %d] failed to save signal: %v", mon.ID, err)
+		return
+	}
+
+	// Update monitor's last signal fields
+	now := time.Now()
+	if err := db.WithContext(ctx).Model(&models.Monitor{}).Where("id = ?", mon.ID).Updates(map[string]interface{}{
+		"last_signal_at":    now,
+		"last_signal_dir":   sig.Direction,
+		"last_signal_price": sig.Price,
+	}).Error; err != nil {
+		log.Printf("[monitor %d] failed to update last signal: %v", mon.ID, err)
+	}
+
+	// Create in-app notification if enabled
+	if mon.NotifyInApp {
+		dirLabel := "LONG"
+		if sig.Direction == "short" {
+			dirLabel = "SHORT"
+		}
+		notif := models.Notification{
+			Type:  models.NotificationTypeSignal,
+			Title: fmt.Sprintf("%s %s", dirLabel, mon.Symbol),
+			Body: fmt.Sprintf("Strategy %q on %s %s: %s @ $%.4f",
+				mon.StrategyName, mon.Symbol, mon.Timeframe, sig.Direction, sig.Price),
+			Metadata: models.JSON{
+				"monitor_id": mon.ID,
+				"signal_id":  ms.ID,
+				"symbol":     mon.Symbol,
+				"direction":  sig.Direction,
+				"price":      sig.Price,
+			},
+		}
+		if err := db.WithContext(ctx).Create(&notif).Error; err != nil {
+			log.Printf("[monitor %d] failed to create notification: %v", mon.ID, err)
+		}
+	}
+
+	// Publish signal event to Redis pubsub
+	evt := signalEvent{
+		ID:        ms.ID,
+		MonitorID: mon.ID,
+		Direction: sig.Direction,
+		Price:     sig.Price,
+		Strength:  sig.Strength,
+		Metadata:  meta,
+		CreatedAt: ms.CreatedAt,
+	}
+	b, err := json.Marshal(evt)
+	if err == nil {
+		rdb.Publish(ctx, signalChannel, string(b))
+	}
+}
+
+// updateLastPolled sets monitor.LastPolledAt = t in the DB.
+func updateLastPolled(ctx context.Context, db *gorm.DB, monitorID int64, t time.Time) {
+	if err := db.WithContext(ctx).Model(&models.Monitor{}).
+		Where("id = ?", monitorID).
+		Update("last_polled_at", t).Error; err != nil {
+		log.Printf("[monitor %d] failed to update last_polled_at: %v", monitorID, err)
+	}
+}
