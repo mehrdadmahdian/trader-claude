@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { RefreshCw, ChevronDown, Search, BarChart2 } from 'lucide-react'
+import { RefreshCw, ChevronDown, Search, BarChart2, Newspaper } from 'lucide-react'
 import { subDays, formatISO } from 'date-fns'
 import { useMutation } from '@tanstack/react-query'
 import { useMarkets, useSymbols, useCandles, useTimeframes } from '@/hooks/useMarketData'
@@ -7,8 +7,10 @@ import { CandlestickChart } from '@/components/chart/CandlestickChart'
 import { IndicatorModal } from '@/components/chart/IndicatorModal'
 import { IndicatorChips } from '@/components/chart/IndicatorChips'
 import { PanelChart } from '@/components/chart/PanelChart'
+import { NewsSidePanel } from '@/components/news/NewsSidePanel'
 import { calculateIndicator } from '@/api/indicators'
 import { useMarketStore, useThemeStore } from '@/stores'
+import { useNewsBySymbol } from '@/hooks/useNews'
 import type { ActiveIndicator, MarketSymbol, OHLCVCandle } from '@/types'
 
 const TIMEFRAMES = ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w']
@@ -54,6 +56,7 @@ export function Chart() {
   const isDark = theme === 'dark'
 
   const [selectedAdapter, setSelectedAdapter] = useState('binance')
+  const [newsOpen, setNewsOpen] = useState(false)
 
   const { data: adapters } = useMarkets()
   const { data: symbols } = useSymbols(selectedAdapter, selectedMarket)
@@ -80,6 +83,12 @@ export function Chart() {
     to,
     market: selectedMarket,
   })
+
+  const { data: newsData, isFetching: newsFetching } = useNewsBySymbol(
+    newsOpen ? selectedSymbol : null,
+    20,
+  )
+  const newsItems = newsData?.data ?? []
 
   // ── Indicators state ───────────────────────────────────────────────────────
 
@@ -303,6 +312,21 @@ export function Chart() {
           Indicators
         </button>
 
+        {/* News toggle button */}
+        <button
+          onClick={() => setNewsOpen((v) => !v)}
+          className={`flex items-center gap-1.5 px-3 py-2 text-sm border rounded-md transition-colors ${
+            newsOpen
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'bg-card border-border hover:bg-accent'
+          }`}
+          aria-label="Toggle news panel"
+          aria-pressed={newsOpen}
+        >
+          <Newspaper className="h-4 w-4" />
+          News
+        </button>
+
         {/* Active indicator chips */}
         {activeIndicators.length > 0 && (
           <IndicatorChips
@@ -324,50 +348,63 @@ export function Chart() {
         </button>
       </div>
 
-      {/* ── Chart area ── */}
-      <div className="flex-1 bg-card border border-border rounded-lg overflow-hidden min-h-0">
-        {!selectedSymbol ? (
-          /* Empty state */
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-            <Search className="h-12 w-12 opacity-30" />
-            <p className="text-lg font-medium">Select a symbol to view chart</p>
-            <p className="text-sm">Choose an adapter and search for a symbol above</p>
+      {/* ── Chart area + News panel row ── */}
+      <div className="flex flex-1 gap-0 min-h-0 overflow-hidden">
+        {/* Chart column */}
+        <div className="flex flex-col flex-1 gap-4 min-h-0 min-w-0 overflow-hidden">
+          <div className="flex-1 bg-card border border-border rounded-lg overflow-hidden min-h-0">
+            {!selectedSymbol ? (
+              /* Empty state */
+              <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+                <Search className="h-12 w-12 opacity-30" />
+                <p className="text-lg font-medium">Select a symbol to view chart</p>
+                <p className="text-sm">Choose an adapter and search for a symbol above</p>
+              </div>
+            ) : isError ? (
+              /* Error state */
+              <div className="flex flex-col items-center justify-center h-full gap-3">
+                <p className="text-destructive font-medium">Failed to load candles</p>
+                <p className="text-sm text-muted-foreground">
+                  {error instanceof Error ? error.message : 'Unknown error'}
+                </p>
+                <button
+                  onClick={() => refetch()}
+                  className="mt-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90 transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : (
+              /* Chart with loading overlay */
+              <CandlestickChart
+                candles={candles ?? []}
+                overlayIndicators={overlayIndicators}
+                isLoading={isFetching}
+                className="h-full"
+              />
+            )}
           </div>
-        ) : isError ? (
-          /* Error state */
-          <div className="flex flex-col items-center justify-center h-full gap-3">
-            <p className="text-destructive font-medium">Failed to load candles</p>
-            <p className="text-sm text-muted-foreground">
-              {error instanceof Error ? error.message : 'Unknown error'}
-            </p>
-            <button
-              onClick={() => refetch()}
-              className="mt-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90 transition-colors"
-            >
-              Retry
-            </button>
-          </div>
-        ) : (
-          /* Chart with loading overlay */
-          <CandlestickChart
-            candles={candles ?? []}
-            overlayIndicators={overlayIndicators}
-            isLoading={isFetching}
-            className="h-full"
+
+          {/* ── Panel indicators ── */}
+          {panelIndicators.map((ind) => (
+            <PanelChart
+              key={ind.meta.id}
+              indicator={ind}
+              onClose={() => handleRemoveIndicator(ind.meta.id)}
+              isDark={isDark}
+            />
+          ))}
+        </div>
+
+        {/* News side panel (conditional) */}
+        {newsOpen && (
+          <NewsSidePanel
+            items={newsItems}
+            isLoading={newsFetching}
+            onClose={() => setNewsOpen(false)}
           />
         )}
       </div>
-
-      {/* ── Panel indicators ── */}
-      {panelIndicators.map((ind) => (
-        <PanelChart
-          key={ind.meta.id}
-          indicator={ind}
-          onClose={() => handleRemoveIndicator(ind.meta.id)}
-          isDark={isDark}
-        />
-      ))}
-
       {/* ── Indicator modal ── */}
       <IndicatorModal
         open={indicatorModalOpen}
