@@ -112,9 +112,13 @@ func (m *Manager) cancelTimer(monitorID int64) {
 }
 
 // scheduleNext sets up a time.AfterFunc for the next poll of monitorID.
+// This is used for initial scheduling (Add, Resume, Start). All subsequent
+// rescheduling from within a running job uses rescheduleNext, which performs
+// an atomic existence check to prevent ghost timers after Pause or Remove.
+//
 // When the timer fires:
-//  1. If a poll is already running (active map), reschedule and return.
-//  2. Otherwise mark active, submit the job to the pool, then reschedule after the job.
+//  1. If a poll is already running (active map), reschedule via rescheduleNext and return.
+//  2. Otherwise mark active, submit the job to the pool, then reschedule via rescheduleNext after the job.
 func (m *Manager) scheduleNext(monitorID int64, interval time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -128,7 +132,7 @@ func (m *Manager) scheduleNext(monitorID int64, interval time.Duration) {
 	m.timers[monitorID] = time.AfterFunc(interval, func() {
 		// Skip if a previous poll is still running.
 		if _, loaded := m.active.LoadOrStore(monitorID, struct{}{}); loaded {
-			m.scheduleNext(monitorID, interval)
+			m.rescheduleNext(monitorID, interval)
 			return
 		}
 		submitted := m.pool.Submit(worker.Job{
@@ -136,27 +140,61 @@ func (m *Manager) scheduleNext(monitorID int64, interval time.Duration) {
 			Task: func(jobCtx context.Context) error {
 				defer m.active.Delete(monitorID)
 				executePoll(jobCtx, m.db, m.rdb, m.ds, monitorID)
-				// Only reschedule if the manager is still running AND this monitor
-				// was not paused or removed while the job was in-flight.
 				select {
 				case <-m.ctx.Done():
 					return nil
 				default:
 				}
-				m.mu.Lock()
-				_, timerExists := m.timers[monitorID]
-				m.mu.Unlock()
-				if !timerExists {
-					return nil
-				}
-				m.scheduleNext(monitorID, interval)
+				m.rescheduleNext(monitorID, interval)
 				return nil
 			},
 		})
 		if !submitted {
 			// Pool is full — reschedule BEFORE clearing the active flag to avoid
 			// a race window where a concurrent goroutine could pass LoadOrStore.
-			m.scheduleNext(monitorID, interval)
+			m.rescheduleNext(monitorID, interval)
+			m.active.Delete(monitorID)
+		}
+	})
+}
+
+// rescheduleNext is like scheduleNext but only proceeds if the monitor's timer
+// entry still exists in m.timers (i.e., it was not paused or removed while the
+// job was in-flight). This avoids the TOCTOU window between the timerExists
+// check and the scheduleNext lock acquisition.
+func (m *Manager) rescheduleNext(monitorID int64, interval time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.stopped {
+		return
+	}
+	if _, exists := m.timers[monitorID]; !exists {
+		return
+	}
+	if t, ok := m.timers[monitorID]; ok {
+		t.Stop()
+	}
+	m.timers[monitorID] = time.AfterFunc(interval, func() {
+		if _, loaded := m.active.LoadOrStore(monitorID, struct{}{}); loaded {
+			m.rescheduleNext(monitorID, interval)
+			return
+		}
+		submitted := m.pool.Submit(worker.Job{
+			Name: fmt.Sprintf("monitor-poll-%d", monitorID),
+			Task: func(jobCtx context.Context) error {
+				defer m.active.Delete(monitorID)
+				executePoll(jobCtx, m.db, m.rdb, m.ds, monitorID)
+				select {
+				case <-m.ctx.Done():
+					return nil
+				default:
+				}
+				m.rescheduleNext(monitorID, interval)
+				return nil
+			},
+		})
+		if !submitted {
+			m.rescheduleNext(monitorID, interval)
 			m.active.Delete(monitorID)
 		}
 	})
