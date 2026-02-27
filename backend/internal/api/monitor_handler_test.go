@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
@@ -17,6 +18,18 @@ import (
 	"github.com/trader-claude/backend/internal/monitor"
 	"github.com/trader-claude/backend/internal/registry"
 )
+
+// registerMonitorOnce ensures "test_strat" is registered exactly once,
+// eliminating the TOCTOU race between Exists and Register under -race.
+var registerMonitorOnce sync.Once
+
+func registerTestMonitorStrategies() {
+	registerMonitorOnce.Do(func() {
+		if !registry.Strategies().Exists("test_strat") {
+			registry.Strategies().Register("test_strat", func() registry.Strategy { return nil }) //nolint:errcheck
+		}
+	})
+}
 
 // openTestDB opens a connection to the MySQL instance available in the Docker
 // environment. It also runs AutoMigrate for monitor-related tables so the tests
@@ -93,10 +106,8 @@ func setupMonitorTestApp(t *testing.T) (*fiber.App, *gorm.DB, bool) {
 		return nil, nil, false
 	}
 
-	// Register a dummy strategy so validation passes (ignore duplicate error)
-	if !registry.Strategies().Exists("test_strat") {
-		registry.Strategies().Register("test_strat", func() registry.Strategy { return nil }) //nolint:errcheck
-	}
+	// Register a dummy strategy so validation passes — uses sync.Once to be race-safe.
+	registerTestMonitorStrategies()
 
 	mgr := monitor.NewManager(db, nil, nil, nil)
 
