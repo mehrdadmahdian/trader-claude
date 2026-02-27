@@ -21,8 +21,8 @@ const (
 	warmupCandles = 200
 )
 
-// signalEvent is the payload published to Redis and forwarded over WebSocket.
-type signalEvent struct {
+// SignalEvent is the payload published to Redis and forwarded over WebSocket.
+type SignalEvent struct {
 	ID        int64       `json:"id"`
 	MonitorID int64       `json:"monitor_id"`
 	Direction string      `json:"direction"`
@@ -182,7 +182,7 @@ func emitSignal(ctx context.Context, db *gorm.DB, rdb *redis.Client, mon models.
 	}
 
 	// Publish signal event to Redis pubsub
-	evt := signalEvent{
+	evt := SignalEvent{
 		ID:        ms.ID,
 		MonitorID: mon.ID,
 		Direction: sig.Direction,

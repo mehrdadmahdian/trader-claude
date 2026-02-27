@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
-	"time"
 
 	"github.com/gofiber/contrib/websocket"
 	"github.com/redis/go-redis/v9"
@@ -81,15 +80,7 @@ func signalsWS(rdb *redis.Client) func(*websocket.Conn) {
 					return
 				}
 				// Parse the signal event
-				var evt struct {
-					ID        int64                  `json:"id"`
-					MonitorID int64                  `json:"monitor_id"`
-					Direction string                 `json:"direction"`
-					Price     float64                `json:"price"`
-					Strength  float64                `json:"strength"`
-					Metadata  map[string]interface{} `json:"metadata,omitempty"`
-					CreatedAt time.Time              `json:"created_at"`
-				}
+				var evt monitor.SignalEvent
 				if err := json.Unmarshal([]byte(redisMsg.Payload), &evt); err != nil {
 					log.Printf("ws/monitors/signals: malformed event: %v", err)
 					continue
