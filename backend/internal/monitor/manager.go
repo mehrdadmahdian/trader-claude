@@ -27,9 +27,10 @@ type Manager struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	mu     sync.Mutex
-	timers map[int64]*time.Timer // monitorID → pending next-poll timer
-	active sync.Map              // monitorID → struct{} (set while poll job is running)
+	mu      sync.Mutex
+	timers  map[int64]*time.Timer // monitorID → pending next-poll timer
+	stopped bool                  // set to true by Stop(); prevents new timers after shutdown
+	active  sync.Map              // monitorID → struct{} (set while poll job is running)
 }
 
 // NewManager creates a Manager with its own long-lived internal context.
@@ -93,6 +94,7 @@ func (m *Manager) Stop() {
 	m.cancel()
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.stopped = true
 	for id, t := range m.timers {
 		t.Stop()
 		delete(m.timers, id)
@@ -115,6 +117,10 @@ func (m *Manager) cancelTimer(monitorID int64) {
 //  2. Otherwise mark active, submit the job to the pool, then reschedule after the job.
 func (m *Manager) scheduleNext(monitorID int64, interval time.Duration) {
 	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.stopped {
+		return
+	}
 	// Cancel any existing timer before creating a new one.
 	if t, ok := m.timers[monitorID]; ok {
 		t.Stop()
@@ -130,8 +136,12 @@ func (m *Manager) scheduleNext(monitorID int64, interval time.Duration) {
 			Task: func(jobCtx context.Context) error {
 				defer m.active.Delete(monitorID)
 				executePoll(jobCtx, m.db, m.rdb, m.ds, monitorID)
-				// Reschedule after the poll completes.
-				m.scheduleNext(monitorID, interval)
+				select {
+				case <-m.ctx.Done():
+					return nil
+				default:
+					m.scheduleNext(monitorID, interval)
+				}
 				return nil
 			},
 		})
@@ -142,5 +152,4 @@ func (m *Manager) scheduleNext(monitorID int64, interval time.Duration) {
 			m.active.Delete(monitorID)
 		}
 	})
-	m.mu.Unlock()
 }
