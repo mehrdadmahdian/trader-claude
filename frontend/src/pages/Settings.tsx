@@ -26,40 +26,34 @@ export function Settings() {
     }
   }, [settings])
 
-  // Monitor save mutation
-  useEffect(() => {
-    if (saveMutation.isSuccess) {
-      setSaveMessage({ type: 'success', text: 'Settings saved successfully!' })
-      setTimeout(() => setSaveMessage(null), 3000)
-    }
-    if (saveMutation.isError) {
-      setSaveMessage({ type: 'error', text: 'Failed to save settings.' })
-    }
-  }, [saveMutation.isSuccess, saveMutation.isError])
-
-  // Monitor test mutation
-  useEffect(() => {
-    if (testMutation.data) {
-      const result = testMutation.data as { ok?: boolean; bot_name?: string; error?: string }
-      if (result.ok) {
-        setTestMessage({ type: 'success', text: `Connection successful! Bot: ${result.bot_name || 'Unknown'}` })
-      } else {
-        setTestMessage({ type: 'error', text: `Connection failed: ${result.error || 'Unknown error'}` })
-      }
-      setTimeout(() => setTestMessage(null), 5000)
-    }
-    if (testMutation.isError) {
-      setTestMessage({ type: 'error', text: 'Test connection failed.' })
-    }
-  }, [testMutation.data, testMutation.isError])
-
   const handleSave = () => {
-    saveMutation.mutate(localSettings)
+    saveMutation.mutate(localSettings, {
+      onSuccess: () => {
+        setSaveMessage({ type: 'success', text: 'Settings saved successfully!' })
+        setTimeout(() => setSaveMessage(null), 3000)
+      },
+      onError: () => {
+        setSaveMessage({ type: 'error', text: 'Failed to save settings.' })
+      },
+    })
   }
 
   const handleTestConnection = () => {
     setTestMessage(null)
-    testMutation.mutate()
+    testMutation.mutate(undefined, {
+      onSuccess: (result) => {
+        const data = result as { ok?: boolean; bot_name?: string; error?: string }
+        if (data.ok) {
+          setTestMessage({ type: 'success', text: `Connection successful! Bot: ${data.bot_name || 'Unknown'}` })
+        } else {
+          setTestMessage({ type: 'error', text: `Connection failed: ${data.error || 'Unknown error'}` })
+        }
+        setTimeout(() => setTestMessage(null), 5000)
+      },
+      onError: () => {
+        setTestMessage({ type: 'error', text: 'Test connection failed.' })
+      },
+    })
   }
 
   if (isLoading) {
