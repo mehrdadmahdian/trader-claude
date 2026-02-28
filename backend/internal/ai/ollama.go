@@ -68,7 +68,10 @@ func (o *OllamaProvider) Chat(ctx context.Context, messages []ChatMessage) (*Cha
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("ollama: read response: %w", err)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("ollama: status %d: %s", resp.StatusCode, string(body))
 	}
