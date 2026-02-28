@@ -22,6 +22,7 @@ import {
   Film,
   Bookmark,
   Trash2,
+  Share2,
 } from 'lucide-react'
 import {
   useStrategies,
@@ -1127,6 +1128,7 @@ export function Backtest() {
                       onClick={() => setShareId(activeBacktest.id)}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
+                      <Share2 className="h-3.5 w-3.5" />
                       Share
                     </button>
                   )}
