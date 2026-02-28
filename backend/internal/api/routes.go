@@ -9,10 +9,10 @@ import (
 	"github.com/trader-claude/backend/internal/adapter"
 	"github.com/trader-claude/backend/internal/indicator"
 	"github.com/trader-claude/backend/internal/monitor"
-	"github.com/trader-claude/backend/internal/replay"
-	"github.com/trader-claude/backend/internal/worker"
 	"github.com/trader-claude/backend/internal/portfolio"
 	"github.com/trader-claude/backend/internal/price"
+	"github.com/trader-claude/backend/internal/replay"
+	"github.com/trader-claude/backend/internal/worker"
 	"github.com/trader-claude/backend/internal/ws"
 )
 
@@ -92,6 +92,18 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	v1.Delete("/monitors/:id", mnh.deleteMonitor)
 	v1.Patch("/monitors/:id/toggle", mnh.toggleMonitor)
 	v1.Get("/monitors/:id/signals", mnh.listSignals)
+
+	// --- Social Cards ---
+	sh := newSocialHandler(db)
+	v1.Post("/social/backtest-card/:runId", sh.backtestCard)
+	v1.Post("/social/signal-card/:signalId", sh.signalCard)
+	v1.Post("/social/send-telegram", sh.sendTelegram)
+
+	// --- Settings ---
+	seth := newSettingsHandler(db)
+	v1.Get("/settings/notifications", seth.getNotificationSettings)
+	v1.Post("/settings/notifications", seth.saveNotificationSettings)
+	v1.Post("/settings/notifications/test", seth.testNotificationSettings)
 
 	// --- WebSocket upgrade middleware ---
 	app.Use("/ws", func(c *fiber.Ctx) error {
