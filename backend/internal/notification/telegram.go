@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"time"
 )
 
 const telegramBaseURL = "https://api.telegram.org/bot"
@@ -22,7 +23,7 @@ type TelegramSender struct {
 func NewTelegramSender(botToken string) *TelegramSender {
 	return &TelegramSender{
 		botToken:   botToken,
-		httpClient: &http.Client{},
+		httpClient: &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
@@ -41,7 +42,10 @@ func (t *TelegramSender) SendText(ctx context.Context, chatID, text string) erro
 		"text":       text,
 		"parse_mode": "Markdown",
 	}
-	b, _ := json.Marshal(body)
+	b, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("telegram: marshal body: %w", err)
+	}
 	url := fmt.Sprintf("%s%s/sendMessage", telegramAPIURL, t.botToken)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(b))
@@ -68,9 +72,13 @@ func (t *TelegramSender) SendPhoto(ctx context.Context, chatID string, image []b
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 
-	_ = w.WriteField("chat_id", chatID)
+	if err := w.WriteField("chat_id", chatID); err != nil {
+		return fmt.Errorf("telegram: write chat_id field: %w", err)
+	}
 	if caption != "" {
-		_ = w.WriteField("caption", caption)
+		if err := w.WriteField("caption", caption); err != nil {
+			return fmt.Errorf("telegram: write caption field: %w", err)
+		}
 	}
 
 	part, err := w.CreateFormFile("photo", "card.png")
@@ -80,7 +88,9 @@ func (t *TelegramSender) SendPhoto(ctx context.Context, chatID string, image []b
 	if _, err := part.Write(image); err != nil {
 		return fmt.Errorf("telegram: write image: %w", err)
 	}
-	w.Close()
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("telegram: close multipart: %w", err)
+	}
 
 	url := fmt.Sprintf("%s%s/sendPhoto", telegramAPIURL, t.botToken)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, &buf)
@@ -107,7 +117,7 @@ func (t *TelegramSender) TestConnection(ctx context.Context) (string, error) {
 	url := fmt.Sprintf("%s%s/getMe", telegramAPIURL, t.botToken)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("telegram: create request: %w", err)
 	}
 	resp, err := t.httpClient.Do(req)
 	if err != nil {
