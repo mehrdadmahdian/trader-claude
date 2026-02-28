@@ -2,7 +2,7 @@ package api
 
 import (
 	"encoding/base64"
-	"encoding/json"
+	"errors"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -30,7 +30,10 @@ func (h *socialHandler) backtestCard(c *fiber.Ctx) error {
 
 	var bt models.Backtest
 	if err := h.db.WithContext(c.Context()).First(&bt, id).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "backtest not found"})
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "backtest not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "database error"})
 	}
 
 	// Extract metrics from Metrics JSON
@@ -96,7 +99,10 @@ func (h *socialHandler) signalCard(c *fiber.Ctx) error {
 
 	var sig models.MonitorSignal
 	if err := h.db.WithContext(c.Context()).First(&sig, id).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "signal not found"})
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "signal not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "database error"})
 	}
 
 	// Load the monitor to get strategy name and symbol
@@ -158,11 +164,11 @@ func (h *socialHandler) sendTelegram(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid image_base64"})
 		}
 		if err := sender.SendPhoto(c.Context(), chatID, imgBytes, body.Caption); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "telegram send failed"})
 		}
 	} else if body.Text != "" {
 		if err := sender.SendText(c.Context(), chatID, body.Text); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "telegram send failed"})
 		}
 	} else {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "text or image_base64 required"})
@@ -174,13 +180,16 @@ func (h *socialHandler) sendTelegram(c *fiber.Ctx) error {
 func (h *socialHandler) loadSettingString(key string) (string, error) {
 	var s models.Setting
 	if err := h.db.Where("key = ?", key).First(&s).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", nil
+		}
 		return "", err
 	}
 	var val string
 	if s.Value != nil {
-		// JSON type is a map[string]interface{}, so we need to marshal it back and unmarshal as string
-		if b, err := json.Marshal(s.Value); err == nil {
-			_ = json.Unmarshal(b, &val)
+		// JSON type is map[string]interface{}, extract the "value" field
+		if v, ok := s.Value["value"].(string); ok {
+			val = v
 		}
 	}
 	return val, nil

@@ -1,8 +1,6 @@
 package api
 
 import (
-	"encoding/json"
-
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 
@@ -51,8 +49,8 @@ func (h *settingsHandler) getNotificationSettings(c *fiber.Ctx) error {
 	for _, s := range settings {
 		var v string
 		if s.Value != nil {
-			if b, err := json.Marshal(s.Value); err == nil {
-				_ = json.Unmarshal(b, &v)
+			if val, ok := s.Value["value"].(string); ok {
+				v = val
 			}
 		}
 		vals[s.Key] = v
@@ -75,7 +73,7 @@ func (h *settingsHandler) saveNotificationSettings(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
 	}
 
-	toSave := map[string]interface{}{
+	toSave := map[string]string{
 		"notifications.telegram.bot_token": ns.Telegram.BotToken,
 		"notifications.telegram.chat_id":   ns.Telegram.ChatID,
 		"notifications.webhook.url":        ns.Webhook.URL,
@@ -93,24 +91,15 @@ func (h *settingsHandler) saveNotificationSettings(c *fiber.Ctx) error {
 	}
 
 	for key, val := range toSave {
-		// Marshal the value as a JSON string, then store as a JSON object
-		b, err := json.Marshal(val)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to encode setting"})
-		}
-		var jsonVal models.JSON
-		if err := json.Unmarshal(b, &jsonVal); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to encode setting"})
-		}
-
+		// Store string value as a JSON object with the string value
 		setting := models.Setting{
 			UserID: 1,
 			Key:    key,
-			Value:  jsonVal,
+			Value:  models.JSON{"value": val},
 		}
 		result := h.db.WithContext(c.Context()).
 			Where(models.Setting{UserID: 1, Key: key}).
-			Assign(models.Setting{Value: jsonVal}).
+			Assign(models.Setting{Value: models.JSON{"value": val}}).
 			FirstOrCreate(&setting)
 		if result.Error != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to save setting"})
@@ -124,25 +113,19 @@ func (h *settingsHandler) testNotificationSettings(c *fiber.Ctx) error {
 	result := fiber.Map{}
 
 	// Test Telegram
-	var tgBot, tgChat, tgEnabled models.Setting
+	var tgBot, tgEnabled models.Setting
 	h.db.WithContext(c.Context()).Where("key = ?", "notifications.telegram.bot_token").First(&tgBot)
-	h.db.WithContext(c.Context()).Where("key = ?", "notifications.telegram.chat_id").First(&tgChat)
 	h.db.WithContext(c.Context()).Where("key = ?", "notifications.telegram.enabled").First(&tgEnabled)
 
-	var botToken, chatID, enabled string
+	var botToken, enabled string
 	if tgBot.Value != nil {
-		if b, err := json.Marshal(tgBot.Value); err == nil {
-			_ = json.Unmarshal(b, &botToken)
-		}
-	}
-	if tgChat.Value != nil {
-		if b, err := json.Marshal(tgChat.Value); err == nil {
-			_ = json.Unmarshal(b, &chatID)
+		if val, ok := tgBot.Value["value"].(string); ok {
+			botToken = val
 		}
 	}
 	if tgEnabled.Value != nil {
-		if b, err := json.Marshal(tgEnabled.Value); err == nil {
-			_ = json.Unmarshal(b, &enabled)
+		if val, ok := tgEnabled.Value["value"].(string); ok {
+			enabled = val
 		}
 	}
 
@@ -150,7 +133,7 @@ func (h *settingsHandler) testNotificationSettings(c *fiber.Ctx) error {
 		sender := notification.NewTelegramSender(botToken)
 		name, err := sender.TestConnection(c.Context())
 		if err != nil {
-			result["telegram"] = fiber.Map{"ok": false, "error": err.Error()}
+			result["telegram"] = fiber.Map{"ok": false, "error": "telegram test failed"}
 		} else {
 			result["telegram"] = fiber.Map{"ok": true, "bot_name": name}
 		}
