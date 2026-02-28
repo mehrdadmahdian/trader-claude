@@ -35,6 +35,7 @@ import { useCreateReplaySession, useReplayBookmarks, useDeleteBookmark } from '@
 import { CandlestickChart } from '@/components/chart/CandlestickChart'
 import { ReplayOverlay } from '@/components/replay/ReplayOverlay'
 import { BookmarkModal } from '@/components/replay/BookmarkModal'
+import { ShareModal } from '@/components/social/ShareModal'
 import type { SeriesMarker, Time } from 'lightweight-charts'
 import { useBacktestStore } from '@/stores'
 import type {
@@ -667,6 +668,7 @@ export function Backtest() {
 
   // Replay modal state
   const [bookmarkModalOpen, setBookmarkModalOpen] = useState(false)
+  const [shareId, setShareId] = useState<number | null>(null)
 
   // Zustand store
   const activeBacktest = useBacktestStore((s) => s.activeBacktest)
@@ -1119,6 +1121,15 @@ export function Backtest() {
                       Replay
                     </button>
                   )}
+                  {activeBacktest.status === 'completed' && (
+                    <button
+                      type="button"
+                      onClick={() => setShareId(activeBacktest.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Share
+                    </button>
+                  )}
                   <StatusBadge status={activeBacktest.status} />
                 </div>
               </div>
@@ -1168,6 +1179,9 @@ export function Backtest() {
       {/* Replay overlay + bookmark modal */}
       <ReplayOverlay onSaveBookmark={() => setBookmarkModalOpen(true)} />
       <BookmarkModal open={bookmarkModalOpen} onClose={() => setBookmarkModalOpen(false)} />
+      {shareId !== null && (
+        <ShareModal backtestId={shareId} onClose={() => setShareId(null)} />
+      )}
     </div>
   )
 }
