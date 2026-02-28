@@ -108,13 +108,13 @@ func (Symbol) TableName() string { return "symbols" }
 
 // StrategyDef stores a registered strategy definition
 type StrategyDef struct {
-	ID          int64     `gorm:"primaryKey;autoIncrement" json:"id"`
-	Name        string    `gorm:"type:varchar(100);not null;uniqueIndex" json:"name"`
-	Description string    `gorm:"type:text" json:"description"`
+	ID           int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	Name         string    `gorm:"type:varchar(100);not null;uniqueIndex" json:"name"`
+	Description  string    `gorm:"type:text" json:"description"`
 	ParamsSchema JSON      `gorm:"type:json" json:"params_schema"`
-	Active      bool      `gorm:"default:true" json:"active"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	Active       bool      `gorm:"default:true" json:"active"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 func (StrategyDef) TableName() string { return "strategy_defs" }
@@ -346,11 +346,11 @@ func (NewsItem) TableName() string { return "news_items" }
 type NotificationType string
 
 const (
-	NotificationTypeAlert     NotificationType = "alert"
-	NotificationTypeTrade     NotificationType = "trade"
-	NotificationTypeSystem    NotificationType = "system"
-	NotificationTypeBacktest  NotificationType = "backtest"
-	NotificationTypeSignal    NotificationType = "signal"
+	NotificationTypeAlert    NotificationType = "alert"
+	NotificationTypeTrade    NotificationType = "trade"
+	NotificationTypeSystem   NotificationType = "system"
+	NotificationTypeBacktest NotificationType = "backtest"
+	NotificationTypeSignal   NotificationType = "signal"
 )
 
 // Notification stores system/alert notifications
@@ -442,3 +442,17 @@ type ReplayBookmark struct {
 }
 
 func (ReplayBookmark) TableName() string { return "replay_bookmarks" }
+
+// --- Setting ---
+
+// Setting stores per-user configuration as key-value JSON pairs.
+type Setting struct {
+	ID        int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID    int64     `gorm:"default:1;uniqueIndex:idx_user_key" json:"user_id"`
+	Key       string    `gorm:"type:varchar(100);not null;uniqueIndex:idx_user_key" json:"key"`
+	Value     JSON      `gorm:"type:json" json:"value"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func (Setting) TableName() string { return "settings" }

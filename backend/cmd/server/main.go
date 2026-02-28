@@ -18,12 +18,12 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
-	alertpkg "github.com/trader-claude/backend/internal/alert"
 	"github.com/trader-claude/backend/internal/adapter"
+	alertpkg "github.com/trader-claude/backend/internal/alert"
 	"github.com/trader-claude/backend/internal/api"
 	"github.com/trader-claude/backend/internal/config"
-	monpkg "github.com/trader-claude/backend/internal/monitor"
 	"github.com/trader-claude/backend/internal/models"
+	monpkg "github.com/trader-claude/backend/internal/monitor"
 	"github.com/trader-claude/backend/internal/news"
 	"github.com/trader-claude/backend/internal/price"
 	"github.com/trader-claude/backend/internal/registry"
@@ -214,5 +214,6 @@ func autoMigrate(db *gorm.DB) error {
 		&models.ReplayBookmark{},
 		&models.Monitor{},
 		&models.MonitorSignal{},
+		&models.Setting{},
 	)
 }
