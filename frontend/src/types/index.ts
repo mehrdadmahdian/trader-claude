@@ -567,3 +567,24 @@ export interface MonitorSignalsResponse {
   limit: number
   offset: number
 }
+
+// --- Phase 9: Notification Settings ---
+
+export interface NotificationSettings {
+  telegram: {
+    bot_token: string
+    chat_id: string
+    enabled: boolean
+  }
+  webhook: {
+    url: string
+    secret: string
+    enabled: boolean
+  }
+}
+
+export interface TelegramTestResult {
+  ok: boolean
+  bot_name?: string
+  error?: string
+}
