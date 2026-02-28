@@ -588,3 +588,38 @@ export interface TelegramTestResult {
   bot_name?: string
   error?: string
 }
+
+// ── Phase 10: AI Assistant types ─────────────────────────────────────────
+
+export interface AIChatMessage {
+  role: 'user' | 'assistant' | 'system'
+  content: string
+}
+
+export interface AIPageContext {
+  page: string
+  symbol?: string
+  timeframe?: string
+  indicators?: string[]
+  metrics?: Record<string, unknown>
+  positions?: Array<{ symbol: string; pnl_pct: number }>
+  extra?: Record<string, unknown>
+}
+
+export interface AIChatRequest {
+  messages: AIChatMessage[]
+  page_context: AIPageContext
+  provider?: 'openai' | 'ollama'
+}
+
+export interface AIChatResponse {
+  reply: string
+  suggested_questions: string[]
+}
+
+export interface AISettings {
+  provider: 'openai' | 'ollama'
+  model: string
+  ollama_url: string
+  has_api_key: boolean
+}
