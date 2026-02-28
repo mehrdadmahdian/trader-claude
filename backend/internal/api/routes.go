@@ -105,6 +105,13 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	v1.Post("/settings/notifications", seth.saveNotificationSettings)
 	v1.Post("/settings/notifications/test", seth.testNotificationSettings)
 
+	// --- AI ---
+	aih := newAIHandler(db)
+	v1.Post("/ai/chat", aih.chat)
+	v1.Get("/settings/ai", aih.getAISettings)
+	v1.Post("/settings/ai", aih.saveAISettings)
+	v1.Post("/settings/ai/test", aih.testAIConnection)
+
 	// --- WebSocket upgrade middleware ---
 	app.Use("/ws", func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) {
