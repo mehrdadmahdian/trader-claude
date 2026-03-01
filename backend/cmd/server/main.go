@@ -215,5 +215,6 @@ func autoMigrate(db *gorm.DB) error {
 		&models.Monitor{},
 		&models.MonitorSignal{},
 		&models.Setting{},
+		&models.AnalyticsResult{},
 	)
 }

@@ -456,3 +456,31 @@ type Setting struct {
 }
 
 func (Setting) TableName() string { return "settings" }
+
+// --- AnalyticsResult ---
+
+// AnalyticsResult stores the output of an advanced analytics computation.
+type AnalyticsResult struct {
+	ID            int64      `gorm:"primaryKey;autoIncrement" json:"id"`
+	BacktestRunID int64      `gorm:"index;not null" json:"backtest_run_id"`
+	Type          string     `gorm:"type:varchar(30);not null;index" json:"type"`
+	Status        string     `gorm:"type:varchar(20);not null;default:'pending'" json:"status"`
+	Params        JSON       `gorm:"type:json" json:"params"`
+	Result        JSON       `gorm:"type:json" json:"result,omitempty"`
+	ErrorMessage  string     `gorm:"type:text" json:"error_message,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	CompletedAt   *time.Time `json:"completed_at,omitempty"`
+}
+
+func (AnalyticsResult) TableName() string { return "analytics_results" }
+
+const (
+	AnalyticsTypeHeatmap     = "heatmap"
+	AnalyticsTypeMonteCarlo  = "monte_carlo"
+	AnalyticsTypeWalkForward = "walk_forward"
+
+	AnalyticsStatusPending   = "pending"
+	AnalyticsStatusRunning   = "running"
+	AnalyticsStatusCompleted = "completed"
+	AnalyticsStatusFailed    = "failed"
+)
