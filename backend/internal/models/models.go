@@ -491,3 +491,42 @@ const (
 	AnalyticsStatusCompleted = "completed"
 	AnalyticsStatusFailed    = "failed"
 )
+
+// --- User ---
+
+type UserRole string
+
+const (
+	UserRoleAdmin UserRole = "admin"
+	UserRoleUser  UserRole = "user"
+)
+
+type User struct {
+	ID           int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	Email        string         `gorm:"type:varchar(255);not null;uniqueIndex" json:"email"`
+	PasswordHash string         `gorm:"type:varchar(255);not null" json:"-"`
+	DisplayName  string         `gorm:"type:varchar(100)" json:"display_name"`
+	Role         UserRole       `gorm:"type:varchar(20);not null;default:'user'" json:"role"`
+	Active       bool           `gorm:"default:true" json:"active"`
+	LastLoginAt  *time.Time     `json:"last_login_at,omitempty"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (User) TableName() string { return "users" }
+
+// --- RefreshToken ---
+
+type RefreshToken struct {
+	ID        int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID    int64     `gorm:"not null;index" json:"user_id"`
+	TokenHash string    `gorm:"type:varchar(64);not null;uniqueIndex" json:"-"`
+	ExpiresAt time.Time `gorm:"not null" json:"expires_at"`
+	Revoked   bool      `gorm:"default:false" json:"revoked"`
+	UserAgent string    `gorm:"type:varchar(512)" json:"user_agent"`
+	IP        string    `gorm:"type:varchar(45)" json:"ip"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (RefreshToken) TableName() string { return "refresh_tokens" }

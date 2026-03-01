@@ -197,6 +197,7 @@ func connectDB(dsn string, cfg *gorm.Config) (*gorm.DB, error) {
 	return nil, fmt.Errorf("could not connect to database after 10 attempts: %w", err)
 }
 
+
 func autoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&models.Symbol{},
@@ -216,5 +217,7 @@ func autoMigrate(db *gorm.DB) error {
 		&models.MonitorSignal{},
 		&models.Setting{},
 		&models.AnalyticsResult{},
+		&models.User{},
+		&models.RefreshToken{},
 	)
 }
