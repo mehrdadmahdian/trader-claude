@@ -562,6 +562,7 @@ export interface MonitorCreateRequest {
   params?: Record<string, unknown>
   notify_in_app?: boolean
   mode?: 'live' | 'paper'
+  paper_portfolio_id?: number
 }
 
 export interface MonitorSignalsResponse {

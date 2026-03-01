@@ -19,35 +19,21 @@
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────┐
-│  Browser                                            │
-│  (localhost:5173)                                   │
-└──────────────────┬──────────────────────────────────┘
-                   │
-                   │ REST + WebSocket
-                   ▼
-┌─────────────────────────────────────────────────────┐
-│  Frontend (React + Vite)                            │
-│  - Dashboard, Charts, Backtest, Monitor             │
-│  - Zustand stores, React Query, Tailwind            │
-└──────────────────┬──────────────────────────────────┘
-                   │
-                   │ HTTP/JSON (port 8080)
-                   ▼
-┌─────────────────────────────────────────────────────┐
-│  Backend (Go + Fiber)                              │
-│  - REST API (/api/v1/*)                            │
-│  - WebSocket hub                                   │
-│  - Worker pool for async jobs                      │
-│  - Monitor & strategy engines                      │
-└──────┬─────────────────────────┬────────────────────┘
-       │                         │
-    MySQL                      Redis
-    (8.0)                       (7)
-    Candles                  Cache
-    Symbols                  Sessions
-    Backtests
+```mermaid
+graph TB
+    subgraph Docker
+        FE["Frontend<br/>React + Vite<br/>:5173"]
+        BE["Backend<br/>Go + Fiber<br/>:8080"]
+        DB[("MySQL 8.0<br/>:3306")]
+        RD[("Redis 7<br/>:6379")]
+    end
+
+    Browser --> FE
+    FE -->|"REST + WS"| BE
+    BE --> DB
+    BE --> RD
+    BE -->|"Market Data"| Binance["Binance API"]
+    BE -->|"Market Data"| Yahoo["Yahoo Finance"]
 ```
 
 ## Quick Start
