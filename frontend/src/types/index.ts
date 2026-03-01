@@ -531,6 +531,8 @@ export interface Monitor {
   strategy_name: string
   params: Record<string, unknown>
   status: 'active' | 'paused' | 'stopped'
+  mode: 'live' | 'paper'
+  paper_portfolio_id?: number
   notify_in_app: boolean
   last_polled_at?: string
   last_signal_at?: string
@@ -559,6 +561,7 @@ export interface MonitorCreateRequest {
   strategy_name: string
   params?: Record<string, unknown>
   notify_in_app?: boolean
+  mode?: 'live' | 'paper'
 }
 
 export interface MonitorSignalsResponse {

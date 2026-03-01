@@ -95,6 +95,7 @@ function MonitorCard({ monitor }: { monitor: Monitor }) {
   const deleteMon = useDeleteMonitor()
 
   const isActive = monitor.status === 'active'
+  const isPaper = monitor.mode === 'paper'
 
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4 flex flex-col gap-3">
@@ -107,7 +108,18 @@ function MonitorCard({ monitor }: { monitor: Monitor }) {
             }`}
           />
           <div className="min-w-0">
-            <p className="font-medium truncate text-zinc-100">{monitor.name}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-medium truncate text-zinc-100">{monitor.name}</p>
+              {isPaper ? (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  PAPER
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-green-500/15 text-green-400 border border-green-500/30">
+                  LIVE
+                </span>
+              )}
+            </div>
             <p className="text-xs text-zinc-400">
               {monitor.symbol} · {monitor.timeframe} · {monitor.adapter_id}
             </p>
@@ -213,6 +225,7 @@ function CreateMonitorModal({ open, onClose, strategies }: CreateModalProps) {
   const [timeframe, setTimeframe] = useState('1h')
   const [strategyName, setStrategyName] = useState('')
   const [notifyInApp, setNotifyInApp] = useState(true)
+  const [mode, setMode] = useState<'live' | 'paper'>('live')
   const [name, setName] = useState('')
   const [error, setError] = useState('')
 
@@ -232,6 +245,7 @@ function CreateMonitorModal({ open, onClose, strategies }: CreateModalProps) {
       timeframe,
       strategy_name: strategyName,
       notify_in_app: notifyInApp,
+      mode,
     }
     createMon.mutate(req, {
       onSuccess: () => {
@@ -369,6 +383,40 @@ function CreateMonitorModal({ open, onClose, strategies }: CreateModalProps) {
               onChange={(e) => setName(e.target.value)}
               className="w-full h-9 rounded-md border border-zinc-700 bg-zinc-900 px-3 text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
+          </div>
+
+          {/* Mode selector */}
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-zinc-300">Mode</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setMode('live')}
+                className={`flex-1 py-2 rounded border text-sm font-medium transition-colors ${
+                  mode === 'live'
+                    ? 'border-green-500 bg-green-500/10 text-green-400'
+                    : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                }`}
+              >
+                Live Alert
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('paper')}
+                className={`flex-1 py-2 rounded border text-sm font-medium transition-colors ${
+                  mode === 'paper'
+                    ? 'border-amber-500 bg-amber-500/10 text-amber-400'
+                    : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                }`}
+              >
+                Paper Trade
+              </button>
+            </div>
+            <p className="text-xs text-zinc-500">
+              {mode === 'live'
+                ? 'Monitor sends alerts only — no trades are executed.'
+                : 'Monitor auto-executes paper trades when signals fire.'}
+            </p>
           </div>
 
           {/* Notify in-app */}
