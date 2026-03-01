@@ -391,6 +391,11 @@ const (
 	MonitorStatusStopped MonitorStatus = "stopped"
 )
 
+const (
+	MonitorModeLive  = "live"
+	MonitorModePaper = "paper"
+)
+
 // Monitor stores a live strategy-monitoring configuration
 type Monitor struct {
 	ID              int64          `gorm:"primaryKey;autoIncrement" json:"id"`
@@ -407,6 +412,8 @@ type Monitor struct {
 	LastSignalAt    *time.Time     `json:"last_signal_at,omitempty"`
 	LastSignalDir   string         `gorm:"type:varchar(10)" json:"last_signal_dir"`
 	LastSignalPrice float64        `gorm:"type:decimal(20,8)" json:"last_signal_price"`
+	Mode            string         `gorm:"type:varchar(10);not null;default:'live'" json:"mode"`
+	PaperPortfolioID *int64        `gorm:"index" json:"paper_portfolio_id,omitempty"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
