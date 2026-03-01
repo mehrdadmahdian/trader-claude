@@ -157,6 +157,11 @@ func emitSignal(ctx context.Context, db *gorm.DB, rdb *redis.Client, mon models.
 		return
 	}
 
+	// Paper trade execution
+	if mon.Mode == models.MonitorModePaper && mon.PaperPortfolioID != nil {
+		executePaperTrade(ctx, db, mon, sig)
+	}
+
 	// Create in-app notification if enabled
 	if mon.NotifyInApp {
 		dirLabel := "LONG"
@@ -206,4 +211,55 @@ func updateLastPolled(ctx context.Context, db *gorm.DB, monitorID int64, t time.
 		Update("last_polled_at", t).Error; err != nil {
 		log.Printf("[monitor %d] failed to update last_polled_at: %v", monitorID, err)
 	}
+}
+
+// executePaperTrade records a paper trade transaction for the portfolio linked to the monitor.
+func executePaperTrade(ctx context.Context, db *gorm.DB, mon models.Monitor, sig *registry.Signal) {
+	// Load portfolio
+	var portfolio models.Portfolio
+	if err := db.WithContext(ctx).First(&portfolio, *mon.PaperPortfolioID).Error; err != nil {
+		log.Printf("[monitor %d] paper trade: portfolio not found: %v", mon.ID, err)
+		return
+	}
+
+	// Determine transaction type based on signal direction
+	var txnType models.TransactionType
+	switch sig.Direction {
+	case "long":
+		txnType = models.TransactionTypeBuy
+	case "short":
+		txnType = models.TransactionTypeSell
+	default:
+		log.Printf("[monitor %d] paper trade: unknown direction %q, skipping", mon.ID, sig.Direction)
+		return
+	}
+
+	qty := paperTradeQuantity(portfolio.CurrentCash, sig.Price)
+	if qty <= 0 {
+		log.Printf("[monitor %d] paper trade: qty=0, skipping", mon.ID)
+		return
+	}
+
+	// Create transaction
+	txn := models.Transaction{
+		PortfolioID: *mon.PaperPortfolioID,
+		Symbol:      mon.Symbol,
+		Type:        txnType,
+		Quantity:    qty,
+		Price:       sig.Price,
+		ExecutedAt:  time.Now().UTC(),
+	}
+	if err := db.WithContext(ctx).Create(&txn).Error; err != nil {
+		log.Printf("[monitor %d] paper trade: create txn failed: %v", mon.ID, err)
+		return
+	}
+	log.Printf("[monitor %d] paper trade: %s %s qty=%.6f @ $%.4f", mon.ID, txnType, mon.Symbol, qty, sig.Price)
+}
+
+// paperTradeQuantity allocates 10% of available cash per trade at the given price.
+func paperTradeQuantity(cash, price float64) float64 {
+	if price <= 0 {
+		return 0
+	}
+	return (cash * 0.10) / price
 }
