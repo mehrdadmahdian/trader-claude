@@ -277,15 +277,6 @@ func seedAlerts(db *gorm.DB) {
 
 // seedNews inserts 5 realistic news items spread over the last 7 days.
 func seedNews(db *gorm.DB) {
-	var count int64
-	if err := db.Model(&models.NewsItem{}).Count(&count).Error; err != nil {
-		log.Printf("seed: error checking news count: %v", err)
-		return
-	}
-	if count >= 5 {
-		log.Println("seed: news items already exist (>=5), skipping")
-		return
-	}
 
 	now := time.Now().UTC()
 

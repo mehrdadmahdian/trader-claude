@@ -253,6 +253,15 @@ func executePaperTrade(ctx context.Context, db *gorm.DB, mon models.Monitor, sig
 		log.Printf("[monitor %d] paper trade: create txn failed: %v", mon.ID, err)
 		return
 	}
+
+	// Deduct cost from portfolio cash for buy trades so subsequent signals reflect real balance
+	if txnType == models.TransactionTypeBuy {
+		cost := qty * sig.Price
+		if err := db.WithContext(ctx).Model(&portfolio).Update("current_cash", portfolio.CurrentCash-cost).Error; err != nil {
+			log.Printf("[monitor %d] paper trade: update cash failed: %v", mon.ID, err)
+		}
+	}
+
 	log.Printf("[monitor %d] paper trade: %s %s qty=%.6f @ $%.4f", mon.ID, txnType, mon.Symbol, qty, sig.Price)
 }
 
