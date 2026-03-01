@@ -21,6 +21,7 @@ import (
 	"github.com/trader-claude/backend/internal/adapter"
 	alertpkg "github.com/trader-claude/backend/internal/alert"
 	"github.com/trader-claude/backend/internal/api"
+	authpkg "github.com/trader-claude/backend/internal/auth"
 	"github.com/trader-claude/backend/internal/config"
 	"github.com/trader-claude/backend/internal/models"
 	monpkg "github.com/trader-claude/backend/internal/monitor"
@@ -61,6 +62,9 @@ func main() {
 		log.Fatalf("auto-migrate failed: %v", err)
 	}
 	log.Println("database migrated")
+
+	// Create auth service
+	authSvc := authpkg.NewAuthService(db, cfg.App.JWTSecret)
 
 	// 3. Connect Redis
 	rdb := goredis.NewClient(&goredis.Options{
@@ -145,7 +149,7 @@ func main() {
 	}))
 
 	// 7. Register routes
-	api.RegisterRoutes(app, db, rdb, hub, cfg.App.Version, pool, ds, replayMgr, monitorMgr)
+	api.RegisterRoutes(app, db, rdb, hub, cfg.App.Version, pool, ds, replayMgr, monitorMgr, authSvc)
 
 	// 8. Start server
 	addr := fmt.Sprintf(":%d", cfg.App.Port)

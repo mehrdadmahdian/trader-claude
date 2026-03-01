@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/trader-claude/backend/internal/adapter"
+	"github.com/trader-claude/backend/internal/auth"
 	"github.com/trader-claude/backend/internal/indicator"
 	"github.com/trader-claude/backend/internal/monitor"
 	"github.com/trader-claude/backend/internal/portfolio"
@@ -17,7 +18,7 @@ import (
 )
 
 // RegisterRoutes wires all HTTP and WebSocket routes onto the Fiber app
-func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub, version string, pool *worker.WorkerPool, ds *adapter.DataService, mgr *replay.Manager, monMgr *monitor.Manager) {
+func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub, version string, pool *worker.WorkerPool, ds *adapter.DataService, mgr *replay.Manager, monMgr *monitor.Manager, authSvc *auth.AuthService) {
 	// Health
 	health := newHealthHandler(db, rdb, version)
 	app.Get("/health", health.check)
@@ -25,100 +26,113 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	// API v1 group
 	v1 := app.Group("/api/v1")
 
+	// --- Public auth routes ---
+	authH := newAuthHandler(authSvc)
+	v1.Post("/auth/register", authH.register)
+	v1.Post("/auth/login", authH.login)
+	v1.Post("/auth/refresh", authH.refresh)
+
+	// --- Protected routes (require valid JWT) ---
+	protected := v1.Group("", auth.RequireAuth(authSvc))
+
+	protected.Post("/auth/logout", authH.logout)
+	protected.Get("/auth/me", authH.me)
+	protected.Put("/auth/me", authH.updateMe)
+
 	// --- Markets ---
 	mh := newMarketsHandler(ds)
-	v1.Get("/markets", mh.listAdapters)
-	v1.Get("/markets/:adapterID/symbols", mh.listSymbols)
+	protected.Get("/markets", mh.listAdapters)
+	protected.Get("/markets/:adapterID/symbols", mh.listSymbols)
 
 	// --- Candles ---
-	v1.Get("/candles/timeframes", mh.listTimeframes)
-	v1.Get("/candles", mh.getCandles)
+	protected.Get("/candles/timeframes", mh.listTimeframes)
+	protected.Get("/candles", mh.getCandles)
 
 	// --- Strategies ---
 	bh := newBacktestHandler(db, rdb, pool, ds)
-	v1.Get("/strategies", bh.listStrategies)
-	v1.Get("/strategies/:id", bh.getStrategy)
+	protected.Get("/strategies", bh.listStrategies)
+	protected.Get("/strategies/:id", bh.getStrategy)
 
 	// --- Backtests ---
-	v1.Post("/backtest/run", bh.runBacktest)
-	v1.Get("/backtest/runs", bh.listRuns)
-	v1.Get("/backtest/runs/:id", bh.getRun)
-	v1.Delete("/backtest/runs/:id", bh.deleteRun)
+	protected.Post("/backtest/run", bh.runBacktest)
+	protected.Get("/backtest/runs", bh.listRuns)
+	protected.Get("/backtest/runs/:id", bh.getRun)
+	protected.Delete("/backtest/runs/:id", bh.deleteRun)
 
 	// --- Replay ---
 	rh := newReplayHandler(db, ds, mgr)
-	v1.Post("/backtest/runs/:id/replay", rh.createReplay)
-	v1.Post("/replay/bookmarks", rh.createBookmark)
-	v1.Get("/replay/bookmarks", rh.listBookmarks)
-	v1.Get("/replay/bookmarks/:id", rh.getBookmark)
-	v1.Delete("/replay/bookmarks/:id", rh.deleteBookmark)
+	protected.Post("/backtest/runs/:id/replay", rh.createReplay)
+	protected.Post("/replay/bookmarks", rh.createBookmark)
+	protected.Get("/replay/bookmarks", rh.listBookmarks)
+	protected.Get("/replay/bookmarks/:id", rh.getBookmark)
+	protected.Delete("/replay/bookmarks/:id", rh.deleteBookmark)
 
 	// --- Analytics ---
 	anah := newAnalyticsHandler(db, pool)
-	v1.Get("/backtest/runs/:id/param-heatmap", anah.paramHeatmap)
-	v1.Post("/backtest/runs/:id/monte-carlo", anah.monteCarlo)
-	v1.Get("/backtest/runs/:id/walk-forward", anah.walkForward)
-	v1.Post("/backtest/compare", anah.compareRuns)
-	v1.Get("/analytics/jobs/:jobId", anah.getJob)
+	protected.Get("/backtest/runs/:id/param-heatmap", anah.paramHeatmap)
+	protected.Post("/backtest/runs/:id/monte-carlo", anah.monteCarlo)
+	protected.Get("/backtest/runs/:id/walk-forward", anah.walkForward)
+	protected.Post("/backtest/compare", anah.compareRuns)
+	protected.Get("/analytics/jobs/:jobId", anah.getJob)
 
 	// --- Indicators ---
 	ih := indicator.NewHandler()
-	v1.Get("/indicators", ih.ListIndicators)
-	v1.Post("/indicators/calculate", ih.Calculate)
+	protected.Get("/indicators", ih.ListIndicators)
+	protected.Post("/indicators/calculate", ih.Calculate)
 
 	// --- Portfolios ---
 	priceSvc := price.NewService(rdb, "", "")
 	portfolioSvc := portfolio.NewService(db, priceSvc)
 	ph := newPortfolioHandler(portfolioSvc)
-	ph.registerRoutes(v1)
+	ph.registerRoutes(protected)
 
 	// --- News ---
 	nh := newNewsHandler(db)
-	v1.Get("/news", nh.listNews)
-	v1.Get("/news/symbols/:symbol", nh.newsBySymbol)
+	protected.Get("/news", nh.listNews)
+	protected.Get("/news/symbols/:symbol", nh.newsBySymbol)
 
 	// --- Alerts ---
 	ah := newAlertHandler(db, priceSvc)
-	v1.Post("/alerts", ah.createAlert)
-	v1.Get("/alerts", ah.listAlerts)
-	v1.Delete("/alerts/:id", ah.deleteAlert)
-	v1.Patch("/alerts/:id/toggle", ah.toggleAlert)
+	protected.Post("/alerts", ah.createAlert)
+	protected.Get("/alerts", ah.listAlerts)
+	protected.Delete("/alerts/:id", ah.deleteAlert)
+	protected.Patch("/alerts/:id/toggle", ah.toggleAlert)
 
 	// --- Notifications ---
 	nfh := newNotificationHandler(db, rdb)
-	v1.Get("/notifications", nfh.listNotifications)
-	v1.Patch("/notifications/:id/read", nfh.markRead)
-	v1.Post("/notifications/read-all", nfh.markAllRead)
-	v1.Get("/notifications/unread-count", nfh.unreadCount)
+	protected.Get("/notifications", nfh.listNotifications)
+	protected.Patch("/notifications/:id/read", nfh.markRead)
+	protected.Post("/notifications/read-all", nfh.markAllRead)
+	protected.Get("/notifications/unread-count", nfh.unreadCount)
 
 	// --- Monitors ---
 	mnh := newMonitorHandler(db, monMgr)
-	v1.Post("/monitors", mnh.createMonitor)
-	v1.Get("/monitors", mnh.listMonitors)
-	v1.Get("/monitors/:id", mnh.getMonitor)
-	v1.Put("/monitors/:id", mnh.updateMonitor)
-	v1.Delete("/monitors/:id", mnh.deleteMonitor)
-	v1.Patch("/monitors/:id/toggle", mnh.toggleMonitor)
-	v1.Get("/monitors/:id/signals", mnh.listSignals)
+	protected.Post("/monitors", mnh.createMonitor)
+	protected.Get("/monitors", mnh.listMonitors)
+	protected.Get("/monitors/:id", mnh.getMonitor)
+	protected.Put("/monitors/:id", mnh.updateMonitor)
+	protected.Delete("/monitors/:id", mnh.deleteMonitor)
+	protected.Patch("/monitors/:id/toggle", mnh.toggleMonitor)
+	protected.Get("/monitors/:id/signals", mnh.listSignals)
 
 	// --- Social Cards ---
 	sh := newSocialHandler(db)
-	v1.Post("/social/backtest-card/:runId", sh.backtestCard)
-	v1.Post("/social/signal-card/:signalId", sh.signalCard)
-	v1.Post("/social/send-telegram", sh.sendTelegram)
+	protected.Post("/social/backtest-card/:runId", sh.backtestCard)
+	protected.Post("/social/signal-card/:signalId", sh.signalCard)
+	protected.Post("/social/send-telegram", sh.sendTelegram)
 
 	// --- Settings ---
 	seth := newSettingsHandler(db)
-	v1.Get("/settings/notifications", seth.getNotificationSettings)
-	v1.Post("/settings/notifications", seth.saveNotificationSettings)
-	v1.Post("/settings/notifications/test", seth.testNotificationSettings)
+	protected.Get("/settings/notifications", seth.getNotificationSettings)
+	protected.Post("/settings/notifications", seth.saveNotificationSettings)
+	protected.Post("/settings/notifications/test", seth.testNotificationSettings)
 
 	// --- AI ---
 	aih := newAIHandler(db)
-	v1.Post("/ai/chat", aih.chat)
-	v1.Get("/settings/ai", aih.getAISettings)
-	v1.Post("/settings/ai", aih.saveAISettings)
-	v1.Post("/settings/ai/test", aih.testAIConnection)
+	protected.Post("/ai/chat", aih.chat)
+	protected.Get("/settings/ai", aih.getAISettings)
+	protected.Post("/settings/ai", aih.saveAISettings)
+	protected.Post("/settings/ai/test", aih.testAIConnection)
 
 	// --- WebSocket upgrade middleware ---
 	app.Use("/ws", func(c *fiber.Ctx) error {

@@ -9,18 +9,19 @@ import (
 )
 
 type Config struct {
-	App      AppConfig
-	DB       DBConfig
-	Redis    RedisConfig
-	Worker   WorkerConfig
-	CORS     CORSConfig
+	App    AppConfig
+	DB     DBConfig
+	Redis  RedisConfig
+	Worker WorkerConfig
+	CORS   CORSConfig
 }
 
 type AppConfig struct {
-	Env     string
-	Version string
-	Port    int
-	LogLevel string
+	Env       string
+	Version   string
+	Port      int
+	LogLevel  string
+	JWTSecret string
 }
 
 type DBConfig struct {
@@ -53,10 +54,11 @@ func Load() (*Config, error) {
 
 	cfg := &Config{
 		App: AppConfig{
-			Env:      getEnv("APP_ENV", "development"),
-			Version:  getEnv("APP_VERSION", "0.1.0"),
-			Port:     getEnvInt("BACKEND_PORT", 8080),
-			LogLevel: getEnv("LOG_LEVEL", "info"),
+			Env:       getEnv("APP_ENV", "development"),
+			Version:   getEnv("APP_VERSION", "0.1.0"),
+			Port:      getEnvInt("BACKEND_PORT", 8080),
+			LogLevel:  getEnv("LOG_LEVEL", "info"),
+			JWTSecret: getEnv("JWT_SECRET", "change-me-in-production"),
 		},
 		DB: DBConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
