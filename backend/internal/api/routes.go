@@ -53,6 +53,14 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	v1.Get("/replay/bookmarks/:id", rh.getBookmark)
 	v1.Delete("/replay/bookmarks/:id", rh.deleteBookmark)
 
+	// --- Analytics ---
+	anah := newAnalyticsHandler(db, pool)
+	v1.Get("/backtest/runs/:id/param-heatmap", anah.paramHeatmap)
+	v1.Post("/backtest/runs/:id/monte-carlo", anah.monteCarlo)
+	v1.Get("/backtest/runs/:id/walk-forward", anah.walkForward)
+	v1.Post("/backtest/compare", anah.compareRuns)
+	v1.Get("/analytics/jobs/:jobId", anah.getJob)
+
 	// --- Indicators ---
 	ih := indicator.NewHandler()
 	v1.Get("/indicators", ih.ListIndicators)
