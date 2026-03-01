@@ -37,6 +37,7 @@ import { CandlestickChart } from '@/components/chart/CandlestickChart'
 import { ReplayOverlay } from '@/components/replay/ReplayOverlay'
 import { BookmarkModal } from '@/components/replay/BookmarkModal'
 import { ShareModal } from '@/components/social/ShareModal'
+import { AnalyticsTab } from '@/components/analytics/AnalyticsTab'
 import type { SeriesMarker, Time } from 'lightweight-charts'
 import { useBacktestStore } from '@/stores'
 import type {
@@ -641,7 +642,7 @@ function BookmarksTab({ runId }: { runId: number }) {
 
 // ── Main Backtest page ────────────────────────────────────────────────────────
 
-type ResultTab = 'overview' | 'trades' | 'chart' | 'bookmarks'
+type ResultTab = 'overview' | 'trades' | 'chart' | 'bookmarks' | 'analytics'
 
 export function Backtest() {
   // Strategy selection
@@ -1138,7 +1139,7 @@ export function Backtest() {
 
               {/* Tabs */}
               <div className="flex items-center gap-1 mt-4">
-                {(['overview', 'trades', 'chart', 'bookmarks'] as ResultTab[]).map((tab) => (
+                {(['overview', 'trades', 'chart', 'bookmarks', 'analytics'] as ResultTab[]).map((tab) => (
                   <button
                     key={tab}
                     type="button"
@@ -1173,6 +1174,9 @@ export function Backtest() {
                 />
               )}
               {resultTab === 'bookmarks' && <BookmarksTab runId={activeBacktest.id} />}
+              {resultTab === 'analytics' && (
+                <AnalyticsTab runId={activeBacktest.id} allRunIds={recentRuns?.map((b) => b.id) ?? []} />
+              )}
             </div>
           </div>
         )}
