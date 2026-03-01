@@ -623,3 +623,78 @@ export interface AISettings {
   ollama_url: string
   has_api_key: boolean
 }
+
+// --- Analytics ---
+
+export interface HeatmapCell {
+  x_value: number
+  y_value: number
+  sharpe_ratio: number
+  total_return: number
+  max_drawdown: number
+  total_trades: number
+}
+
+export interface HeatmapResult {
+  x_param: string
+  y_param: string
+  x_values: number[]
+  y_values: number[]
+  cells: HeatmapCell[][]
+}
+
+export interface MonteCarloResult {
+  num_simulations: number
+  percentiles: Array<{ percentile: number; values: number[] }>
+  probability_of_ruin: number
+  median_return: number
+  min_return: number
+  max_return: number
+}
+
+export interface WalkForwardWindow {
+  window_index: number
+  train_start: string
+  train_end: string
+  test_start: string
+  test_end: string
+  train_sharpe: number
+  test_sharpe: number
+  train_return: number
+  test_return: number
+  train_trades: number
+  test_trades: number
+}
+
+export interface WalkForwardResult {
+  windows: WalkForwardWindow[]
+  summary: {
+    avg_test_sharpe: number
+    avg_test_return: number
+    consistency_ratio: number
+  }
+}
+
+export interface CompareRunEntry {
+  run_id: number
+  name: string
+  strategy: string
+  symbol: string
+  timeframe: string
+  metrics: Record<string, unknown>
+  equity_curve: Array<{ timestamp: string; value: number }>
+}
+
+export interface CompareResult {
+  runs: CompareRunEntry[]
+}
+
+export interface AnalyticsJob {
+  id: number
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  type: string
+  result?: Record<string, unknown>
+  error?: string
+  created_at: string
+  completed_at?: string
+}
