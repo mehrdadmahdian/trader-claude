@@ -9,6 +9,7 @@ import (
 	"github.com/trader-claude/backend/internal/adapter"
 	"github.com/trader-claude/backend/internal/auth"
 	"github.com/trader-claude/backend/internal/indicator"
+	"github.com/trader-claude/backend/internal/models"
 	"github.com/trader-claude/backend/internal/monitor"
 	"github.com/trader-claude/backend/internal/portfolio"
 	"github.com/trader-claude/backend/internal/price"
@@ -133,6 +134,13 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	protected.Get("/settings/ai", aih.getAISettings)
 	protected.Post("/settings/ai", aih.saveAISettings)
 	protected.Post("/settings/ai/test", aih.testAIConnection)
+
+	// --- Admin ---
+	adminH := newAdminHandler(db)
+	admin := protected.Group("/admin", auth.RequireRole(models.UserRoleAdmin))
+	admin.Get("/users", adminH.listUsers)
+	admin.Patch("/users/:id/toggle", adminH.toggleUser)
+	admin.Patch("/users/:id/role", adminH.changeRole)
 
 	// --- WebSocket upgrade middleware ---
 	app.Use("/ws", func(c *fiber.Ctx) error {
