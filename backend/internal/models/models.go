@@ -500,15 +500,25 @@ const (
 
 // --- User ---
 
+// UserRole classifies a user's permission level.
+type UserRole string
+
+const (
+	UserRoleAdmin UserRole = "admin"
+	UserRoleUser  UserRole = "user"
+)
+
 // User represents an application user account for multi-tenancy.
 type User struct {
-	ID        int64     `gorm:"primaryKey;autoIncrement" json:"id"`
-	Email     string    `gorm:"type:varchar(255);not null;uniqueIndex" json:"email"`
-	Password  string    `gorm:"type:varchar(255);not null" json:"password"`
-	Username  string    `gorm:"type:varchar(100);not null;uniqueIndex" json:"username"`
-	IsActive  bool      `gorm:"default:true" json:"is_active"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID           int64      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Email        string     `gorm:"type:varchar(255);not null;uniqueIndex" json:"email"`
+	PasswordHash string     `gorm:"type:varchar(255);not null" json:"-"`
+	DisplayName  string     `gorm:"type:varchar(100);not null" json:"display_name"`
+	Role         UserRole   `gorm:"type:varchar(20);not null;default:'user'" json:"role"`
+	Active       bool       `gorm:"default:true" json:"active"`
+	LastLoginAt  *time.Time `json:"last_login_at,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 func (User) TableName() string { return "users" }
@@ -517,12 +527,14 @@ func (User) TableName() string { return "users" }
 
 // RefreshToken stores JWT refresh tokens for session management.
 type RefreshToken struct {
-	ID        int64      `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID    int64      `gorm:"not null;index" json:"user_id"`
-	Token     string     `gorm:"type:varchar(512);not null;uniqueIndex" json:"token"`
-	ExpiresAt time.Time  `gorm:"not null" json:"expires_at"`
-	CreatedAt time.Time  `json:"created_at"`
-	RevokedAt *time.Time `json:"revoked_at,omitempty"`
+	ID        int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID    int64     `gorm:"not null;index" json:"user_id"`
+	TokenHash string    `gorm:"type:varchar(64);not null;uniqueIndex" json:"token_hash"`
+	ExpiresAt time.Time `gorm:"not null" json:"expires_at"`
+	Revoked   bool      `gorm:"default:false;index" json:"revoked"`
+	UserAgent string    `gorm:"type:varchar(512)" json:"user_agent"`
+	IP        string    `gorm:"type:varchar(45)" json:"ip"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 func (RefreshToken) TableName() string { return "refresh_tokens" }
