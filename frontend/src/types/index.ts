@@ -702,3 +702,37 @@ export interface AnalyticsJob {
   created_at: string
   completed_at?: string
 }
+
+// ── Auth types ──────────────────────────────────────────────────────────────
+
+export interface User {
+  id: number
+  email: string
+  display_name: string
+  role: 'admin' | 'user'
+  active: boolean
+  last_login_at?: string
+  created_at: string
+}
+
+export interface AuthResponse {
+  user: User
+  access_token: string
+}
+
+export interface LoginRequest {
+  email: string
+  password: string
+}
+
+export interface RegisterRequest {
+  email: string
+  password: string
+  display_name: string
+}
+
+export interface UpdateProfileRequest {
+  display_name?: string
+  password?: string
+  current_password?: string
+}
