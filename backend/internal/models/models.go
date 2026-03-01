@@ -135,6 +135,7 @@ const (
 // Backtest stores a backtest run
 type Backtest struct {
 	ID           int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID       int64          `gorm:"not null;default:1;index" json:"user_id"`
 	Name         string         `gorm:"type:varchar(200);not null" json:"name"`
 	AdapterID    string         `gorm:"type:varchar(50);not null;default:''" json:"adapter_id"`
 	StrategyName string         `gorm:"type:varchar(100);not null;index" json:"strategy_name"`
@@ -204,6 +205,7 @@ const (
 // Portfolio represents a live trading, paper trading, or manual portfolio
 type Portfolio struct {
 	ID           int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID       int64          `gorm:"not null;default:1;index" json:"user_id"`
 	Name         string         `gorm:"type:varchar(200);not null" json:"name"`
 	Description  string         `gorm:"type:text" json:"description"`
 	Type         PortfolioType  `gorm:"type:varchar(20);not null;default:'manual'" json:"type"`
@@ -303,6 +305,7 @@ const (
 // Alert stores price/volume/custom alert definitions
 type Alert struct {
 	ID               int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID           int64          `gorm:"not null;default:1;index" json:"user_id"`
 	Name             string         `gorm:"type:varchar(200);not null" json:"name"`
 	AdapterID        string         `gorm:"type:varchar(20);not null;default:'binance'" json:"adapter_id"`
 	Symbol           string         `gorm:"type:varchar(20);not null;index" json:"symbol"`
@@ -356,6 +359,7 @@ const (
 // Notification stores system/alert notifications
 type Notification struct {
 	ID        int64            `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID    int64            `gorm:"not null;default:1;index" json:"user_id"`
 	Type      NotificationType `gorm:"type:varchar(30);not null;index" json:"type"`
 	Title     string           `gorm:"type:varchar(255);not null" json:"title"`
 	Body      string           `gorm:"type:text" json:"body"`
@@ -371,6 +375,7 @@ func (Notification) TableName() string { return "notifications" }
 // WatchList groups symbols a user wants to track
 type WatchList struct {
 	ID        int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID    int64          `gorm:"not null;default:1;index" json:"user_id"`
 	Name      string         `gorm:"type:varchar(100);not null" json:"name"`
 	Symbols   JSON           `gorm:"type:json" json:"symbols"`
 	CreatedAt time.Time      `json:"created_at"`
@@ -399,6 +404,7 @@ const (
 // Monitor stores a live strategy-monitoring configuration
 type Monitor struct {
 	ID              int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID          int64          `gorm:"not null;default:1;index" json:"user_id"`
 	Name            string         `gorm:"type:varchar(200);not null" json:"name"`
 	AdapterID       string         `gorm:"type:varchar(20);not null" json:"adapter_id"`
 	Symbol          string         `gorm:"type:varchar(20);not null;index" json:"symbol"`
@@ -494,39 +500,29 @@ const (
 
 // --- User ---
 
-type UserRole string
-
-const (
-	UserRoleAdmin UserRole = "admin"
-	UserRoleUser  UserRole = "user"
-)
-
+// User represents an application user account for multi-tenancy.
 type User struct {
-	ID           int64          `gorm:"primaryKey;autoIncrement" json:"id"`
-	Email        string         `gorm:"type:varchar(255);not null;uniqueIndex" json:"email"`
-	PasswordHash string         `gorm:"type:varchar(255);not null" json:"-"`
-	DisplayName  string         `gorm:"type:varchar(100)" json:"display_name"`
-	Role         UserRole       `gorm:"type:varchar(20);not null;default:'user'" json:"role"`
-	Active       bool           `gorm:"default:true" json:"active"`
-	LastLoginAt  *time.Time     `json:"last_login_at,omitempty"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
+	ID        int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	Email     string    `gorm:"type:varchar(255);not null;uniqueIndex" json:"email"`
+	Password  string    `gorm:"type:varchar(255);not null" json:"password"`
+	Username  string    `gorm:"type:varchar(100);not null;uniqueIndex" json:"username"`
+	IsActive  bool      `gorm:"default:true" json:"is_active"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func (User) TableName() string { return "users" }
 
 // --- RefreshToken ---
 
+// RefreshToken stores JWT refresh tokens for session management.
 type RefreshToken struct {
-	ID        int64     `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID    int64     `gorm:"not null;index" json:"user_id"`
-	TokenHash string    `gorm:"type:varchar(64);not null;uniqueIndex" json:"-"`
-	ExpiresAt time.Time `gorm:"not null" json:"expires_at"`
-	Revoked   bool      `gorm:"default:false" json:"revoked"`
-	UserAgent string    `gorm:"type:varchar(512)" json:"user_agent"`
-	IP        string    `gorm:"type:varchar(45)" json:"ip"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        int64      `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID    int64      `gorm:"not null;index" json:"user_id"`
+	Token     string     `gorm:"type:varchar(512);not null;uniqueIndex" json:"token"`
+	ExpiresAt time.Time  `gorm:"not null" json:"expires_at"`
+	CreatedAt time.Time  `json:"created_at"`
+	RevokedAt *time.Time `json:"revoked_at,omitempty"`
 }
 
 func (RefreshToken) TableName() string { return "refresh_tokens" }
