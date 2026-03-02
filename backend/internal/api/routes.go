@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strings"
 	"time"
 
 	"github.com/gofiber/contrib/websocket"
@@ -22,7 +23,7 @@ import (
 )
 
 // RegisterRoutes wires all HTTP and WebSocket routes onto the Fiber app
-func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub, version string, pool *worker.WorkerPool, ds *adapter.DataService, mgr *replay.Manager, monMgr *monitor.Manager, authSvc *auth.AuthService) {
+func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub, version string, pool *worker.WorkerPool, ds *adapter.DataService, mgr *replay.Manager, monMgr *monitor.Manager, authSvc *auth.AuthService, corsOrigins string) {
 	// Health
 	health := newHealthHandler(db, rdb, version)
 	app.Get("/health", health.check)
@@ -42,6 +43,18 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"error": "too many login attempts, try again later"})
 		},
 	})
+
+	mutationLimiter := limiter.New(limiter.Config{
+		Max:        20,
+		Expiration: time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"error": "rate limit exceeded"})
+		},
+	})
+
 	v1.Post("/auth/register", authH.register)
 	v1.Post("/auth/login", loginLimiter, authH.login)
 	v1.Post("/auth/refresh", authH.refresh)
@@ -68,7 +81,7 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	protected.Get("/strategies/:id", bh.getStrategy)
 
 	// --- Backtests ---
-	protected.Post("/backtest/run", bh.runBacktest)
+	protected.Post("/backtest/run", mutationLimiter, bh.runBacktest)
 	protected.Get("/backtest/runs", bh.listRuns)
 	protected.Get("/backtest/runs/:id", bh.getRun)
 	protected.Delete("/backtest/runs/:id", bh.deleteRun)
@@ -107,7 +120,7 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 
 	// --- Alerts ---
 	ah := newAlertHandler(db, priceSvc)
-	protected.Post("/alerts", ah.createAlert)
+	protected.Post("/alerts", mutationLimiter, ah.createAlert)
 	protected.Get("/alerts", ah.listAlerts)
 	protected.Delete("/alerts/:id", ah.deleteAlert)
 	protected.Patch("/alerts/:id/toggle", ah.toggleAlert)
@@ -121,7 +134,7 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 
 	// --- Monitors ---
 	mnh := newMonitorHandler(db, monMgr)
-	protected.Post("/monitors", mnh.createMonitor)
+	protected.Post("/monitors", mutationLimiter, mnh.createMonitor)
 	protected.Get("/monitors", mnh.listMonitors)
 	protected.Get("/monitors/:id", mnh.getMonitor)
 	protected.Put("/monitors/:id", mnh.updateMonitor)
@@ -155,9 +168,25 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	admin.Patch("/users/:id/toggle", adminH.toggleUser)
 	admin.Patch("/users/:id/role", adminH.changeRole)
 
-	// --- WebSocket upgrade middleware (validates token and sets locals) ---
+	// --- WebSocket upgrade middleware (validates origin and token, sets locals) ---
 	app.Use("/ws", func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) {
+			// Origin validation
+			origin := c.Get("Origin")
+			if origin != "" {
+				allowedOrigins := strings.Split(corsOrigins, ",")
+				allowed := false
+				for _, o := range allowedOrigins {
+					if strings.TrimSpace(o) == origin {
+						allowed = true
+						break
+					}
+				}
+				if !allowed {
+					return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "origin not allowed"})
+				}
+			}
+			// JWT validation
 			token := c.Query("token")
 			claims, err := authSvc.ValidateAccessToken(token)
 			if err != nil {
@@ -172,17 +201,32 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	})
 
 	// Market data WebSocket (hub)
-	app.Get("/ws", websocket.New(hub.ServeWS))
+	app.Get("/ws", websocket.New(hub.ServeWS, websocket.Config{
+		ReadBufferSize:  4096,
+		WriteBufferSize: 4096,
+	}))
 
 	// Backtest progress WebSocket
-	app.Get("/ws/backtest/:id/progress", websocket.New(bh.progressWS))
+	app.Get("/ws/backtest/:id/progress", websocket.New(bh.progressWS, websocket.Config{
+		ReadBufferSize:  4096,
+		WriteBufferSize: 4096,
+	}))
 
 	// Replay WebSocket
-	app.Get("/ws/replay/:replay_id", websocket.New(rh.replayWS))
+	app.Get("/ws/replay/:replay_id", websocket.New(rh.replayWS, websocket.Config{
+		ReadBufferSize:  4096,
+		WriteBufferSize: 4096,
+	}))
 
 	// Notifications WebSocket
-	app.Get("/ws/notifications", websocket.New(nfh.notificationsWS))
+	app.Get("/ws/notifications", websocket.New(nfh.notificationsWS, websocket.Config{
+		ReadBufferSize:  4096,
+		WriteBufferSize: 4096,
+	}))
 
 	// Monitor signals WebSocket (multiplexed)
-	app.Get("/ws/monitors/signals", websocket.New(signalsWS(rdb)))
+	app.Get("/ws/monitors/signals", websocket.New(signalsWS(rdb), websocket.Config{
+		ReadBufferSize:  4096,
+		WriteBufferSize: 4096,
+	}))
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	goredis "github.com/redis/go-redis/v9"
@@ -39,6 +40,9 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("config validation failed: %v", err)
 	}
 
 	log.Printf("starting trader-claude %s (env=%s)", cfg.App.Version, cfg.App.Env)
@@ -138,6 +142,7 @@ func main() {
 	})
 
 	app.Use(recover.New())
+	app.Use(api.SecurityHeaders())
 	app.Use(logger.New(logger.Config{
 		Format: "[${time}] ${status} - ${latency} ${method} ${path}\n",
 	}))
@@ -148,8 +153,18 @@ func main() {
 		AllowCredentials: true,
 	}))
 
+	// Global rate limiter: 100 requests/min/IP
+	app.Use(limiter.New(limiter.Config{
+		Max:        100,
+		Expiration: 1 * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string { return c.IP() },
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"error": "rate limit exceeded"})
+		},
+	}))
+
 	// 7. Register routes
-	api.RegisterRoutes(app, db, rdb, hub, cfg.App.Version, pool, ds, replayMgr, monitorMgr, authSvc)
+	api.RegisterRoutes(app, db, rdb, hub, cfg.App.Version, pool, ds, replayMgr, monitorMgr, authSvc, cfg.CORS.Origins)
 
 	// 8. Start server
 	addr := fmt.Sprintf(":%d", cfg.App.Port)

@@ -113,3 +113,21 @@ func getEnvInt(key string, fallback int) int {
 	}
 	return fallback
 }
+
+func (cfg *Config) Validate() error {
+	if cfg.App.Env == "production" {
+		if cfg.App.JWTSecret == "" || cfg.App.JWTSecret == "change-me-in-production" {
+			return fmt.Errorf("JWT_SECRET must be set in production")
+		}
+		if len(cfg.App.JWTSecret) < 32 {
+			return fmt.Errorf("JWT_SECRET must be at least 32 characters")
+		}
+		if cfg.DB.Password == "traderpassword" {
+			return fmt.Errorf("default database password must not be used in production")
+		}
+		if cfg.CORS.Origins == "*" || cfg.CORS.Origins == "" {
+			return fmt.Errorf("CORS_ORIGINS must be explicitly set in production")
+		}
+	}
+	return nil
+}
