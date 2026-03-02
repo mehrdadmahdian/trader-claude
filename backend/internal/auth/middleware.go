@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/trader-claude/backend/internal/models"
+	"github.com/trader-claude/backend/internal/security"
 )
 
 func RequireAuth(authSvc *AuthService) fiber.Handler {
@@ -22,6 +23,12 @@ func RequireAuth(authSvc *AuthService) fiber.Handler {
 
 		claims, err := authSvc.ValidateAccessToken(parts[1])
 		if err != nil {
+			security.LogEvent(security.SecurityEvent{
+				Type:   security.EventPermissionDeny,
+				IP:     c.IP(),
+				Path:   c.Path(),
+				Detail: "invalid or expired token",
+			})
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid or expired token"})
 		}
 

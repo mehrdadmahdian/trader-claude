@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/trader-claude/backend/internal/auth"
+	"github.com/trader-claude/backend/internal/security"
 )
 
 type authHandler struct {
@@ -68,12 +69,27 @@ func (h *authHandler) login(c *fiber.Ctx) error {
 
 	accessToken, refreshToken, user, err := h.authSvc.Login(c.Context(), req.Email, req.Password, userAgent, ip)
 	if err != nil {
+		security.LogEvent(security.SecurityEvent{
+			Type:      security.EventLoginFailed,
+			IP:        ip,
+			Path:      c.Path(),
+			UserAgent: userAgent,
+			Detail:    "login attempt failed",
+		})
 		msg := err.Error()
 		if msg == "invalid email or password" || msg == "account is disabled" {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": msg})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "login failed"})
 	}
+
+	security.LogEvent(security.SecurityEvent{
+		Type:      security.EventLoginSuccess,
+		IP:        ip,
+		Path:      c.Path(),
+		UserID:    user.ID,
+		UserAgent: userAgent,
+	})
 
 	setRefreshCookie(c, refreshToken)
 
