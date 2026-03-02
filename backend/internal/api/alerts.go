@@ -105,7 +105,9 @@ func (h *alertHandler) toggleAlert(c *fiber.Ctx) error {
 	if a.Status == models.AlertStatusDisabled {
 		newStatus = models.AlertStatusActive
 	}
-	h.db.Model(&a).Update("status", newStatus)
+	if err := h.db.Model(&a).Update("status", newStatus).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to update alert"})
+	}
 	a.Status = newStatus
 	return c.JSON(fiber.Map{"data": a})
 }

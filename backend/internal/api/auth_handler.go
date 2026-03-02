@@ -41,6 +41,13 @@ func (h *authHandler) register(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "registration failed"})
 	}
 
+	// Issue a refresh token cookie immediately after registration
+	_, refreshToken, _, loginErr := h.authSvc.Login(c.Context(), req.Email, req.Password, c.Get("User-Agent"), c.IP())
+	if loginErr == nil {
+		setRefreshCookie(c, refreshToken)
+	}
+	// Don't fail registration if refresh token creation fails — access token is still valid
+
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"user":         user,
 		"access_token": accessToken,
@@ -61,7 +68,11 @@ func (h *authHandler) login(c *fiber.Ctx) error {
 
 	accessToken, refreshToken, user, err := h.authSvc.Login(c.Context(), req.Email, req.Password, userAgent, ip)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		msg := err.Error()
+		if msg == "invalid email or password" || msg == "account is disabled" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": msg})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "login failed"})
 	}
 
 	setRefreshCookie(c, refreshToken)
@@ -83,7 +94,11 @@ func (h *authHandler) refresh(c *fiber.Ctx) error {
 
 	accessToken, newRefresh, err := h.authSvc.RefreshToken(c.Context(), oldToken, userAgent, ip)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		msg := err.Error()
+		if msg == "invalid refresh token" || msg == "refresh token expired" || msg == "user not found" || msg == "account is disabled" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": msg})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "token refresh failed"})
 	}
 
 	setRefreshCookie(c, newRefresh)
@@ -101,12 +116,11 @@ func (h *authHandler) logout(c *fiber.Ctx) error {
 }
 
 func (h *authHandler) me(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{
-		"id":           auth.GetUserID(c),
-		"email":        c.Locals("user_email"),
-		"display_name": c.Locals("user_display_name"),
-		"role":         c.Locals("user_role"),
-	})
+	user, err := h.authSvc.GetUser(c.Context(), auth.GetUserID(c))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "user not found"})
+	}
+	return c.JSON(fiber.Map{"data": user})
 }
 
 func (h *authHandler) updateMe(c *fiber.Ctx) error {
@@ -119,13 +133,22 @@ func (h *authHandler) updateMe(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
 
-	// Return current user info from token claims (full update would require DB access)
-	return c.JSON(fiber.Map{
-		"id":           auth.GetUserID(c),
-		"email":        c.Locals("user_email"),
-		"display_name": c.Locals("user_display_name"),
-		"role":         c.Locals("user_role"),
-	})
+	user, err := h.authSvc.UpdateProfile(c.Context(), auth.GetUserID(c), req.DisplayName, req.Password, req.CurrentPassword)
+	if err != nil {
+		msg := err.Error()
+		switch msg {
+		case "current password is incorrect":
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": msg})
+		case "user not found":
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": msg})
+		default:
+			if strings.Contains(msg, "password must") || strings.Contains(msg, "password policy") {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": msg})
+			}
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to update profile"})
+		}
+	}
+	return c.JSON(fiber.Map{"data": user})
 }
 
 func setRefreshCookie(c *fiber.Ctx, token string) {
@@ -134,6 +157,7 @@ func setRefreshCookie(c *fiber.Ctx, token string) {
 		Value:    token,
 		Path:     "/api/v1/auth",
 		HTTPOnly: true,
+		Secure:   true,
 		SameSite: "Strict",
 		MaxAge:   7 * 24 * 60 * 60,
 	})

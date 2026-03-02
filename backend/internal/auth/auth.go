@@ -146,6 +146,47 @@ func (s *AuthService) ValidateAccessToken(tokenStr string) (*Claims, error) {
 	return ParseAccessToken(s.jwtSecret, tokenStr)
 }
 
+// GetUser fetches a user by ID from the database.
+func (s *AuthService) GetUser(ctx context.Context, userID int64) (*models.User, error) {
+	var user models.User
+	if err := s.db.WithContext(ctx).First(&user, userID).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// UpdateProfile updates a user's display name and/or password.
+// If password is non-empty, currentPassword must be correct.
+func (s *AuthService) UpdateProfile(ctx context.Context, userID int64, displayName, password, currentPassword string) (*models.User, error) {
+	var user models.User
+	if err := s.db.WithContext(ctx).First(&user, userID).Error; err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	if password != "" {
+		if err := ComparePassword(user.PasswordHash, currentPassword); err != nil {
+			return nil, fmt.Errorf("current password is incorrect")
+		}
+		if err := ValidatePasswordPolicy(password); err != nil {
+			return nil, err
+		}
+		hash, err := HashPassword(password)
+		if err != nil {
+			return nil, fmt.Errorf("failed to hash password")
+		}
+		user.PasswordHash = hash
+	}
+
+	if displayName != "" {
+		user.DisplayName = displayName
+	}
+
+	if err := s.db.WithContext(ctx).Save(&user).Error; err != nil {
+		return nil, fmt.Errorf("failed to update profile")
+	}
+	return &user, nil
+}
+
 func (s *AuthService) createRefreshToken(ctx context.Context, userID int64, userAgent, ip string) (string, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {

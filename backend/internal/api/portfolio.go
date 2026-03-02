@@ -130,6 +130,10 @@ func (h *portfolioHandler) addPosition(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	userID := auth.GetUserID(c)
+	if _, err := h.svc.GetPortfolio(c.Context(), id, userID); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "portfolio not found"})
+	}
 	var req portfolio.AddPositionReq
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
@@ -149,6 +153,10 @@ func (h *portfolioHandler) updatePosition(c *fiber.Ctx) error {
 	posID, err := parsePosID(c)
 	if err != nil {
 		return err
+	}
+	userID := auth.GetUserID(c)
+	if _, err := h.svc.GetPortfolio(c.Context(), portfolioID, userID); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "portfolio not found"})
 	}
 	// Verify position belongs to this portfolio
 	existing, err := h.svc.GetPosition(c.Context(), posID)
@@ -175,6 +183,10 @@ func (h *portfolioHandler) deletePosition(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	userID := auth.GetUserID(c)
+	if _, err := h.svc.GetPortfolio(c.Context(), portfolioID, userID); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "portfolio not found"})
+	}
 	// Verify position belongs to this portfolio
 	existing, err := h.svc.GetPosition(c.Context(), posID)
 	if err != nil || existing.PortfolioID != portfolioID {
@@ -191,6 +203,10 @@ func (h *portfolioHandler) addTransaction(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	userID := auth.GetUserID(c)
+	if _, err := h.svc.GetPortfolio(c.Context(), id, userID); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "portfolio not found"})
+	}
 	var req portfolio.AddTransactionReq
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
@@ -206,6 +222,10 @@ func (h *portfolioHandler) listTransactions(c *fiber.Ctx) error {
 	id, err := parsePortfolioID(c)
 	if err != nil {
 		return err
+	}
+	userID := auth.GetUserID(c)
+	if _, err := h.svc.GetPortfolio(c.Context(), id, userID); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "portfolio not found"})
 	}
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "20"))
@@ -229,6 +249,10 @@ func (h *portfolioHandler) equityCurve(c *fiber.Ctx) error {
 	id, err := parsePortfolioID(c)
 	if err != nil {
 		return err
+	}
+	userID := auth.GetUserID(c)
+	if _, err := h.svc.GetPortfolio(c.Context(), id, userID); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "portfolio not found"})
 	}
 	points, err := h.svc.GetEquityCurve(c.Context(), id)
 	if err != nil {

@@ -21,21 +21,6 @@ import (
 	"github.com/trader-claude/backend/internal/ws"
 )
 
-// wsRequireAuth wraps a WebSocket handler to require a valid JWT token
-// provided as a ?token= query parameter. If the token is missing or invalid,
-// the connection is closed with an error message.
-func wsRequireAuth(authSvc *auth.AuthService, handler func(*websocket.Conn)) func(*websocket.Conn) {
-	return func(conn *websocket.Conn) {
-		token := conn.Query("token")
-		if _, err := authSvc.ValidateAccessToken(token); err != nil {
-			_ = conn.WriteJSON(fiber.Map{"type": "error", "message": "unauthorized"})
-			conn.Close()
-			return
-		}
-		handler(conn)
-	}
-}
-
 // RegisterRoutes wires all HTTP and WebSocket routes onto the Fiber app
 func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub, version string, pool *worker.WorkerPool, ds *adapter.DataService, mgr *replay.Manager, monMgr *monitor.Manager, authSvc *auth.AuthService) {
 	// Health
@@ -170,26 +155,34 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	admin.Patch("/users/:id/toggle", adminH.toggleUser)
 	admin.Patch("/users/:id/role", adminH.changeRole)
 
-	// --- WebSocket upgrade middleware ---
+	// --- WebSocket upgrade middleware (validates token and sets locals) ---
 	app.Use("/ws", func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) {
+			token := c.Query("token")
+			claims, err := authSvc.ValidateAccessToken(token)
+			if err != nil {
+				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"type": "error", "message": "unauthorized"})
+			}
+			c.Locals("user_id", claims.UserID)
+			c.Locals("user_email", claims.Email)
+			c.Locals("user_role", claims.Role)
 			return c.Next()
 		}
 		return fiber.ErrUpgradeRequired
 	})
 
 	// Market data WebSocket (hub)
-	app.Get("/ws", websocket.New(wsRequireAuth(authSvc, hub.ServeWS)))
+	app.Get("/ws", websocket.New(hub.ServeWS))
 
 	// Backtest progress WebSocket
-	app.Get("/ws/backtest/:id/progress", websocket.New(wsRequireAuth(authSvc, bh.progressWS)))
+	app.Get("/ws/backtest/:id/progress", websocket.New(bh.progressWS))
 
 	// Replay WebSocket
-	app.Get("/ws/replay/:replay_id", websocket.New(wsRequireAuth(authSvc, rh.replayWS)))
+	app.Get("/ws/replay/:replay_id", websocket.New(rh.replayWS))
 
 	// Notifications WebSocket
-	app.Get("/ws/notifications", websocket.New(wsRequireAuth(authSvc, nfh.notificationsWS)))
+	app.Get("/ws/notifications", websocket.New(nfh.notificationsWS))
 
 	// Monitor signals WebSocket (multiplexed)
-	app.Get("/ws/monitors/signals", websocket.New(wsRequireAuth(authSvc, signalsWS(rdb))))
+	app.Get("/ws/monitors/signals", websocket.New(signalsWS(rdb)))
 }

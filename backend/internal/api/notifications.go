@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"log"
 
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
@@ -80,18 +79,22 @@ func (h *notificationHandler) unreadCount(c *fiber.Ctx) error {
 }
 
 // GET /ws/notifications — subscribes to Redis pub/sub and pushes new notifications over WS.
-// On connect: sends the 5 most recent unread notifications immediately.
-// Ongoing: whenever the alert evaluator publishes a notification ID, fetches and pushes the full object.
+// On connect: sends the 5 most recent unread notifications immediately (scoped to the authenticated user).
+// Ongoing: whenever the alert evaluator publishes a notification ID, fetches and pushes the full object
+// only if it belongs to this user.
 func (h *notificationHandler) notificationsWS(conn *websocket.Conn) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Get user ID from the WS connection locals (set by upgrade middleware)
+	userID, _ := conn.Locals("user_id").(int64)
+
 	sub := h.rdb.Subscribe(ctx, "notifications:new")
 	defer sub.Close()
 
-	// Send recent unread notifications on connect (oldest first)
+	// Send recent unread notifications on connect (oldest first) — scoped to user
 	var recent []models.Notification
-	h.db.Where("read = ?", false).Order("created_at DESC").Limit(5).Find(&recent)
+	h.db.Where("read = ? AND user_id = ?", false, userID).Order("created_at DESC").Limit(5).Find(&recent)
 	for i := len(recent) - 1; i >= 0; i-- {
 		if b, err := json.Marshal(recent[i]); err == nil {
 			conn.WriteMessage(websocket.TextMessage, b)
@@ -106,8 +109,9 @@ func (h *notificationHandler) notificationsWS(conn *websocket.Conn) {
 				return
 			}
 			var notif models.Notification
-			if err := h.db.First(&notif, msg.Payload).Error; err != nil {
-				log.Printf("ws/notifications: notification %s not found: %v", msg.Payload, err)
+			// Only deliver notifications that belong to THIS user
+			if err := h.db.Where("id = ? AND user_id = ?", msg.Payload, userID).First(&notif).Error; err != nil {
+				// Not found or belongs to another user — skip silently
 				continue
 			}
 			b, err := json.Marshal(notif)

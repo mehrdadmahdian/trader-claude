@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 
+	"github.com/trader-claude/backend/internal/auth"
 	"github.com/trader-claude/backend/internal/models"
 )
 
@@ -51,6 +52,10 @@ func (h *adminHandler) toggleUser(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid user ID"})
 	}
 
+	if id == auth.GetUserID(c) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "cannot modify your own account"})
+	}
+
 	var user models.User
 	if err := h.db.WithContext(c.Context()).First(&user, id).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "user not found"})
@@ -69,6 +74,10 @@ func (h *adminHandler) changeRole(c *fiber.Ctx) error {
 	id, err := strconv.ParseInt(c.Params("id"), 10, 64)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid user ID"})
+	}
+
+	if id == auth.GetUserID(c) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "cannot change your own role"})
 	}
 
 	var req struct {
