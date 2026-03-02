@@ -16,7 +16,7 @@ func SecurityHeaders() fiber.Handler {
 				"script-src 'self'; "+
 				"style-src 'self' 'unsafe-inline'; "+
 				"img-src 'self' data: blob:; "+
-				"connect-src 'self' ws://localhost:* wss://localhost:*; "+
+				"connect-src 'self' http://localhost:* https://localhost:* ws://localhost:* wss://localhost:*; "+
 				"font-src 'self'")
 		if c.Protocol() == "https" {
 			c.Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
