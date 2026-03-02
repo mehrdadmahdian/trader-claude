@@ -41,7 +41,7 @@ func (h *monitorHandler) createMonitor(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
 	}
 	if err := validation.Validate(body); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request parameters"})
 	}
 	if body.Symbol == "" || body.AdapterID == "" || body.StrategyName == "" || body.Timeframe == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "symbol, adapter_id, strategy_name and timeframe are required"})

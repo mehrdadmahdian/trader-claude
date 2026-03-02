@@ -173,6 +173,8 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 		if websocket.IsWebSocketUpgrade(c) {
 			// Origin validation
 			origin := c.Get("Origin")
+			// Empty Origin is allowed for non-browser clients (tooling, server-to-server).
+			// Browser clients always send Origin, so the check below covers them.
 			if origin != "" {
 				allowedOrigins := strings.Split(corsOrigins, ",")
 				allowed := false

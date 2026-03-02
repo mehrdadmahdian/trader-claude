@@ -9,8 +9,9 @@ import (
 
 func TestLogEvent_OutputContainsFields(t *testing.T) {
 	var buf bytes.Buffer
+	orig := log.Writer()
 	log.SetOutput(&buf)
-	defer log.SetOutput(nil)
+	defer log.SetOutput(orig)
 
 	LogEvent(SecurityEvent{
 		Type:   EventLoginFailed,

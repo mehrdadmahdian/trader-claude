@@ -58,7 +58,7 @@ func (h *portfolioHandler) create(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 	if err := validation.Validate(req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request parameters"})
 	}
 	if req.Name == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
@@ -143,7 +143,7 @@ func (h *portfolioHandler) addPosition(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 	if err := validation.Validate(req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request parameters"})
 	}
 	pos, err := h.svc.AddPosition(c.Context(), id, req)
 	if err != nil {
