@@ -529,7 +529,7 @@ func (User) TableName() string { return "users" }
 type RefreshToken struct {
 	ID        int64     `gorm:"primaryKey;autoIncrement" json:"id"`
 	UserID    int64     `gorm:"not null;index" json:"user_id"`
-	TokenHash string    `gorm:"type:varchar(64);not null;uniqueIndex" json:"token_hash"`
+	TokenHash string    `gorm:"type:varchar(64);not null;uniqueIndex" json:"-"`
 	ExpiresAt time.Time `gorm:"not null" json:"expires_at"`
 	Revoked   bool      `gorm:"default:false;index" json:"revoked"`
 	UserAgent string    `gorm:"type:varchar(512)" json:"user_agent"`

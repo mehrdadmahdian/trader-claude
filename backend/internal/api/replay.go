@@ -15,6 +15,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/trader-claude/backend/internal/adapter"
+	"github.com/trader-claude/backend/internal/auth"
 	"github.com/trader-claude/backend/internal/backtest"
 	"github.com/trader-claude/backend/internal/models"
 	"github.com/trader-claude/backend/internal/registry"
@@ -43,7 +44,7 @@ func (h *replayHandler) createReplay(c *fiber.Ctx) error {
 	}
 
 	var bt models.Backtest
-	if err := h.db.WithContext(c.Context()).First(&bt, runID).Error; err != nil {
+	if err := h.db.WithContext(c.Context()).Where("id = ? AND user_id = ?", runID, auth.GetUserID(c)).First(&bt).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "backtest not found"})
 		}
@@ -191,7 +192,7 @@ func (h *replayHandler) createBookmark(c *fiber.Ctx) error {
 	}
 
 	bm := models.ReplayBookmark{
-		UserID:        1,
+		UserID:        auth.GetUserID(c),
 		BacktestRunID: req.BacktestRunID,
 		CandleIndex:   req.CandleIndex,
 		Label:         req.Label,
@@ -223,7 +224,7 @@ func (h *replayHandler) listBookmarks(c *fiber.Ctx) error {
 
 	var bookmarks []models.ReplayBookmark
 	if err := h.db.WithContext(c.Context()).
-		Where("backtest_run_id = ?", runID).
+		Where("backtest_run_id = ? AND user_id = ?", runID, auth.GetUserID(c)).
 		Order("created_at DESC").
 		Find(&bookmarks).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to list bookmarks"})
@@ -248,7 +249,7 @@ func (h *replayHandler) getBookmark(c *fiber.Ctx) error {
 	}
 
 	var bm models.ReplayBookmark
-	if err := h.db.WithContext(c.Context()).First(&bm, id).Error; err != nil {
+	if err := h.db.WithContext(c.Context()).Where("id = ? AND user_id = ?", id, auth.GetUserID(c)).First(&bm).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "bookmark not found"})
 		}
@@ -269,7 +270,7 @@ func (h *replayHandler) deleteBookmark(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "database unavailable"})
 	}
 
-	result := h.db.WithContext(c.Context()).Delete(&models.ReplayBookmark{}, id)
+	result := h.db.WithContext(c.Context()).Where("user_id = ?", auth.GetUserID(c)).Delete(&models.ReplayBookmark{}, id)
 	if result.Error != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to delete bookmark"})
 	}
