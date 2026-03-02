@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom'
-import { Menu, Moon, Sun, Bell, CheckCheck } from 'lucide-react'
+import { Menu, Moon, Sun, Bell, CheckCheck, LogOut } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { useThemeStore, useNotificationStore, useSidebarStore } from '@/stores'
+import { useAuthStore } from '@/stores/authStore'
 import { useMarkAllRead } from '@/hooks/useNotifications'
 import { cn } from '@/lib/utils'
 
@@ -12,6 +13,7 @@ export function TopBar() {
   const { toggle } = useSidebarStore()
   const navigate = useNavigate()
   const { mutate: markAllRead } = useMarkAllRead()
+  const { user, logout } = useAuthStore()
 
   // Show last 5 notifications in dropdown (most recent first)
   const recentNotifications = notifications.slice(0, 5)
@@ -127,6 +129,39 @@ export function TopBar() {
               onSelect={() => navigate('/notifications')}
             >
               View all notifications →
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+
+      {/* User avatar dropdown */}
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger asChild>
+          <button
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary text-sm font-semibold hover:bg-primary/30 transition-colors"
+            aria-label="User menu"
+          >
+            {user ? (user.display_name || user.email).charAt(0).toUpperCase() : '?'}
+          </button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            align="end"
+            sideOffset={8}
+            className="z-50 w-48 rounded-lg border border-border bg-card shadow-lg animate-in fade-in-0 zoom-in-95"
+          >
+            {user && (
+              <div className="px-3 py-2 border-b border-border">
+                <p className="text-xs font-medium truncate">{user.display_name || user.email}</p>
+                <p className="text-[10px] text-muted-foreground capitalize">{user.role}</p>
+              </div>
+            )}
+            <DropdownMenu.Item
+              className="flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 cursor-pointer outline-none transition-colors"
+              onSelect={() => logout()}
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
             </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>

@@ -1,5 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
+import { useEffect } from 'react'
 import { Layout } from '@/components/layout/Layout'
+import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import { Dashboard } from '@/pages/Dashboard'
 import { Chart } from '@/pages/Chart'
 import { Backtest } from '@/pages/Backtest'
@@ -9,11 +11,31 @@ import { News } from '@/pages/News'
 import { Alerts } from '@/pages/Alerts'
 import { Settings } from '@/pages/Settings'
 import { Notifications } from '@/pages/Notifications'
+import Login from '@/pages/Login'
+import Register from '@/pages/Register'
+import { useAuthStore } from '@/stores/authStore'
 
 export function App() {
+  const initialize = useAuthStore((s) => s.initialize)
+
+  useEffect(() => {
+    initialize()
+  }, [initialize])
+
   return (
     <Routes>
-      <Route element={<Layout />}>
+      {/* Public routes */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+
+      {/* Protected routes — require authentication */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }
+      >
         <Route path="/" element={<Dashboard />} />
         <Route path="/chart" element={<Chart />} />
         <Route path="/backtest" element={<Backtest />} />

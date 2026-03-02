@@ -11,9 +11,11 @@ import {
   ChevronLeft,
   ChevronRight,
   TrendingUp,
+  LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSidebarStore } from '@/stores'
+import { useAuthStore } from '@/stores/authStore'
 
 const navItems = [
   { to: '/',           icon: LayoutDashboard, label: 'Dashboard'    },
@@ -28,6 +30,7 @@ const navItems = [
 
 export function Sidebar() {
   const { collapsed, toggle } = useSidebarStore()
+  const { user, logout } = useAuthStore()
 
   return (
     <aside
@@ -68,6 +71,33 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
+
+      {/* User section */}
+      <div className={cn('border-t border-border', collapsed ? 'py-2' : 'px-3 py-2')}>
+        {!collapsed && user && (
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary shrink-0">
+              {(user.display_name || user.email).charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium truncate">{user.display_name || user.email}</p>
+              <p className="text-[10px] text-muted-foreground capitalize">{user.role}</p>
+            </div>
+          </div>
+        )}
+        <button
+          onClick={() => logout()}
+          className={cn(
+            'flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs text-muted-foreground',
+            'hover:text-destructive hover:bg-destructive/10 transition-colors',
+            collapsed && 'justify-center px-0',
+          )}
+          title={collapsed ? 'Logout' : undefined}
+        >
+          <LogOut className="w-3.5 h-3.5 shrink-0" />
+          {!collapsed && <span>Logout</span>}
+        </button>
+      </div>
 
       {/* Collapse toggle */}
       <button
