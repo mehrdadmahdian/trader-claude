@@ -25,11 +25,32 @@ down-v: ## Stop all services and remove volumes
 logs: ## Tail logs from all services
 	docker compose logs -f
 
+prod-up: ## Start production services
+	docker compose -f docker-compose.prod.yml up -d
+
+prod-up-build: ## Rebuild and start production services
+	docker compose -f docker-compose.prod.yml up -d --build
+
+prod-down: ## Stop production services
+	docker compose -f docker-compose.prod.yml down
+
+prod-down-v: ## Stop production services and remove volumes
+	docker compose -f docker-compose.prod.yml down -v
+
 logs-backend: ## Tail backend logs
 	docker compose logs -f backend
 
 logs-frontend: ## Tail frontend logs
 	docker compose logs -f frontend
+
+logs-prod: ## Tail production logs
+	docker compose -f docker-compose.prod.yml logs -f
+
+logs-backend-prod: ## Tail backend production logs
+	docker compose -f docker-compose.prod.yml logs -f backend
+
+logs-frontend-prod: ## Tail frontend production logs
+	docker compose -f docker-compose.prod.yml logs -f frontend
 
 logs-mysql: ## Tail MySQL logs
 	docker compose logs -f mysql
