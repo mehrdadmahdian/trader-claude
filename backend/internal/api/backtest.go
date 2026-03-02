@@ -19,6 +19,7 @@ import (
 	"github.com/trader-claude/backend/internal/backtest"
 	"github.com/trader-claude/backend/internal/models"
 	"github.com/trader-claude/backend/internal/registry"
+	"github.com/trader-claude/backend/internal/validation"
 	"github.com/trader-claude/backend/internal/worker"
 )
 
@@ -102,17 +103,17 @@ func strategyToMap(id string, s registry.Strategy) fiber.Map {
 
 // runBacktestRequest is the body accepted by POST /api/v1/backtest/run.
 type runBacktestRequest struct {
-	Name        string                 `json:"name"`
-	Strategy    string                 `json:"strategy"`
-	Adapter     string                 `json:"adapter"`
-	Symbol      string                 `json:"symbol"`
-	Market      string                 `json:"market"`
-	Timeframe   string                 `json:"timeframe"`
+	Name        string                 `json:"name" validate:"required,max=100,safe_string"`
+	Strategy    string                 `json:"strategy" validate:"required,max=50"`
+	Adapter     string                 `json:"adapter" validate:"required,max=50"`
+	Symbol      string                 `json:"symbol" validate:"required,symbol"`
+	Market      string                 `json:"market" validate:"required,market"`
+	Timeframe   string                 `json:"timeframe" validate:"required,timeframe"`
 	StartDate   time.Time              `json:"start_date"`
 	EndDate     time.Time              `json:"end_date"`
 	Params      map[string]interface{} `json:"params"`
-	InitialCash float64                `json:"initial_cash"`
-	Commission  float64                `json:"commission"`
+	InitialCash float64                `json:"initial_cash" validate:"gte=0"`
+	Commission  float64                `json:"commission" validate:"gte=0"`
 }
 
 // ---- Backtest endpoints -------------------------------------------------
@@ -122,6 +123,10 @@ func (h *backtestHandler) runBacktest(c *fiber.Ctx) error {
 	var req runBacktestRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+
+	if err := validation.Validate(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	// Validate required fields

@@ -7,6 +7,7 @@ import (
 
 	"github.com/trader-claude/backend/internal/auth"
 	"github.com/trader-claude/backend/internal/portfolio"
+	"github.com/trader-claude/backend/internal/validation"
 )
 
 type portfolioHandler struct {
@@ -54,6 +55,9 @@ func parsePosID(c *fiber.Ctx) (int64, error) {
 func (h *portfolioHandler) create(c *fiber.Ctx) error {
 	var req portfolio.CreatePortfolioReq
 	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	if err := validation.Validate(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 	if req.Name == "" {
@@ -136,6 +140,9 @@ func (h *portfolioHandler) addPosition(c *fiber.Ctx) error {
 	}
 	var req portfolio.AddPositionReq
 	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	if err := validation.Validate(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 	pos, err := h.svc.AddPosition(c.Context(), id, req)

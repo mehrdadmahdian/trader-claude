@@ -32,7 +32,7 @@ type PortfolioSummary struct {
 // Request types
 
 type CreatePortfolioReq struct {
-	Name        string               `json:"name"`
+	Name        string               `json:"name" validate:"required,max=100,safe_string"`
 	Description string               `json:"description"`
 	Type        models.PortfolioType `json:"type"`
 	Currency    string               `json:"currency"`
@@ -46,9 +46,9 @@ type UpdatePortfolioReq struct {
 }
 
 type AddPositionReq struct {
-	AdapterID string    `json:"adapter_id"`
-	Symbol    string    `json:"symbol"`
-	Market    string    `json:"market"`
+	AdapterID string    `json:"adapter_id" validate:"required,max=50"`
+	Symbol    string    `json:"symbol" validate:"required,symbol"`
+	Market    string    `json:"market" validate:"omitempty,market"`
 	Quantity  float64   `json:"quantity"`
 	AvgCost   float64   `json:"avg_cost"`
 	OpenedAt  time.Time `json:"opened_at"`

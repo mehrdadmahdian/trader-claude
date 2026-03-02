@@ -10,6 +10,7 @@ import (
 	"github.com/trader-claude/backend/internal/models"
 	"github.com/trader-claude/backend/internal/monitor"
 	"github.com/trader-claude/backend/internal/registry"
+	"github.com/trader-claude/backend/internal/validation"
 )
 
 type monitorHandler struct {
@@ -21,20 +22,26 @@ func newMonitorHandler(db *gorm.DB, mgr *monitor.Manager) *monitorHandler {
 	return &monitorHandler{db: db, mgr: mgr}
 }
 
+// createMonitorReq is the validated request body for POST /api/v1/monitors.
+type createMonitorReq struct {
+	Name         string                 `json:"name" validate:"omitempty,max=100,safe_string"`
+	AdapterID    string                 `json:"adapter_id" validate:"required,max=50"`
+	Symbol       string                 `json:"symbol" validate:"required,symbol"`
+	Market       string                 `json:"market" validate:"omitempty,market"`
+	Timeframe    string                 `json:"timeframe" validate:"required,timeframe"`
+	StrategyName string                 `json:"strategy_name" validate:"required,max=50"`
+	Params       map[string]interface{} `json:"params"`
+	NotifyInApp  *bool                  `json:"notify_in_app"`
+}
+
 // POST /api/v1/monitors
 func (h *monitorHandler) createMonitor(c *fiber.Ctx) error {
-	var body struct {
-		Name         string                 `json:"name"`
-		AdapterID    string                 `json:"adapter_id"`
-		Symbol       string                 `json:"symbol"`
-		Market       string                 `json:"market"`
-		Timeframe    string                 `json:"timeframe"`
-		StrategyName string                 `json:"strategy_name"`
-		Params       map[string]interface{} `json:"params"`
-		NotifyInApp  *bool                  `json:"notify_in_app"`
-	}
+	var body createMonitorReq
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
+	}
+	if err := validation.Validate(body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 	if body.Symbol == "" || body.AdapterID == "" || body.StrategyName == "" || body.Timeframe == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "symbol, adapter_id, strategy_name and timeframe are required"})

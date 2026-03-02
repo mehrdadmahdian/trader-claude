@@ -7,6 +7,7 @@ import (
 	"github.com/trader-claude/backend/internal/auth"
 	"github.com/trader-claude/backend/internal/models"
 	"github.com/trader-claude/backend/internal/price"
+	"github.com/trader-claude/backend/internal/validation"
 )
 
 type alertHandler struct {
@@ -19,14 +20,14 @@ func newAlertHandler(db *gorm.DB, priceSvc *price.Service) *alertHandler {
 }
 
 type createAlertReq struct {
-	Name             string                `json:"name"`
-	AdapterID        string                `json:"adapter_id"`
-	Symbol           string                `json:"symbol"`
-	Market           string                `json:"market"`
-	Condition        models.AlertCondition `json:"condition"`
-	Threshold        float64               `json:"threshold"`
+	Name             string                `json:"name" validate:"required,max=100,safe_string"`
+	AdapterID        string                `json:"adapter_id" validate:"required,max=50"`
+	Symbol           string                `json:"symbol" validate:"required,symbol"`
+	Market           string                `json:"market" validate:"omitempty,market"`
+	Condition        models.AlertCondition `json:"condition" validate:"required"`
+	Threshold        float64               `json:"threshold" validate:"gte=0"`
 	RecurringEnabled bool                  `json:"recurring_enabled"`
-	CooldownMinutes  int                   `json:"cooldown_minutes"`
+	CooldownMinutes  int                   `json:"cooldown_minutes" validate:"gte=0,lte=10080"`
 }
 
 // POST /api/v1/alerts
@@ -34,6 +35,9 @@ func (h *alertHandler) createAlert(c *fiber.Ctx) error {
 	var req createAlertReq
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	if err := validation.Validate(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 	if req.Name == "" || req.Symbol == "" || req.AdapterID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
