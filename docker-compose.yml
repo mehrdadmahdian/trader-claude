@@ -47,6 +47,12 @@ services:
       target: dev
     container_name: trader_backend
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
     depends_on:
       mysql:
         condition: service_healthy

@@ -39,9 +39,15 @@ FROM alpine:3.19 AS production
 
 RUN apk add --no-cache ca-certificates tzdata
 
+RUN adduser -D -g '' appuser
+
 WORKDIR /app
 
 COPY --from=builder /bin/server /app/server
+
+RUN chown appuser:appuser /app/server
+
+USER appuser
 
 EXPOSE 8080
 
