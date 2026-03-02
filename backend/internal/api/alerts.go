@@ -1,6 +1,8 @@
 package api
 
 import (
+	"log"
+
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 
@@ -69,7 +71,8 @@ func (h *alertHandler) createAlert(c *fiber.Ctx) error {
 	}
 
 	if err := h.db.Create(&a).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("createAlert: db.Create failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": a})
 }
@@ -78,7 +81,8 @@ func (h *alertHandler) createAlert(c *fiber.Ctx) error {
 func (h *alertHandler) listAlerts(c *fiber.Ctx) error {
 	var alerts []models.Alert
 	if err := h.db.Where("user_id = ?", auth.GetUserID(c)).Order("created_at DESC").Find(&alerts).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("listAlerts: db.Find failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.JSON(fiber.Map{"data": alerts})
 }
@@ -90,7 +94,8 @@ func (h *alertHandler) deleteAlert(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
 	}
 	if err := h.db.Where("user_id = ?", auth.GetUserID(c)).Delete(&models.Alert{}, id).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("deleteAlert: db.Delete failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }

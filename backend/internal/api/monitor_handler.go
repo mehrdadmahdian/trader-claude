@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"log"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -74,7 +75,8 @@ func (h *monitorHandler) createMonitor(c *fiber.Ctx) error {
 	}
 
 	if err := h.db.Create(&mon).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("createMonitor: db.Create failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 
 	h.mgr.Add(mon.ID, mon.Timeframe)
@@ -86,7 +88,8 @@ func (h *monitorHandler) createMonitor(c *fiber.Ctx) error {
 func (h *monitorHandler) listMonitors(c *fiber.Ctx) error {
 	var monitors []models.Monitor
 	if err := h.db.Where("user_id = ?", auth.GetUserID(c)).Order("created_at DESC").Find(&monitors).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("listMonitors: db.Find failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.JSON(fiber.Map{"data": monitors})
 }
@@ -102,7 +105,8 @@ func (h *monitorHandler) getMonitor(c *fiber.Ctx) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("getMonitor: db.First failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.JSON(mon)
 }
@@ -119,7 +123,8 @@ func (h *monitorHandler) updateMonitor(c *fiber.Ctx) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("updateMonitor: db.First failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	var body struct {
 		Name        string `json:"name"`
@@ -127,6 +132,11 @@ func (h *monitorHandler) updateMonitor(c *fiber.Ctx) error {
 	}
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
+	}
+	if body.Name != "" {
+		if err := validation.ValidateVar(body.Name, "safe_string,max=100"); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request parameters"})
+		}
 	}
 	updates := map[string]interface{}{}
 	if body.Name != "" {
@@ -137,10 +147,12 @@ func (h *monitorHandler) updateMonitor(c *fiber.Ctx) error {
 	}
 	if len(updates) > 0 {
 		if err := h.db.Model(&mon).Updates(updates).Error; err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+			log.Printf("updateMonitor: db.Updates failed: %v", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 		}
 		if err := h.db.Where("id = ? AND user_id = ?", id, userID).First(&mon).Error; err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+			log.Printf("updateMonitor: db.First after update failed: %v", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 		}
 	}
 	return c.JSON(mon)
@@ -153,7 +165,8 @@ func (h *monitorHandler) deleteMonitor(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
 	}
 	if err := h.db.Where("user_id = ?", auth.GetUserID(c)).Delete(&models.Monitor{}, id).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("deleteMonitor: db.Delete failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	h.mgr.Remove(int64(id))
 	return c.SendStatus(fiber.StatusNoContent)
@@ -171,18 +184,21 @@ func (h *monitorHandler) toggleMonitor(c *fiber.Ctx) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("toggleMonitor: db.First failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 
 	switch mon.Status {
 	case models.MonitorStatusActive:
 		if err := h.db.Model(&mon).Update("status", models.MonitorStatusPaused).Error; err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+			log.Printf("toggleMonitor: db.Update (pause) failed: %v", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 		}
 		h.mgr.Pause(int64(id))
 	case models.MonitorStatusPaused:
 		if err := h.db.Model(&mon).Update("status", models.MonitorStatusActive).Error; err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+			log.Printf("toggleMonitor: db.Update (resume) failed: %v", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 		}
 		h.mgr.Resume(int64(id), mon.Timeframe)
 	default:
@@ -190,7 +206,8 @@ func (h *monitorHandler) toggleMonitor(c *fiber.Ctx) error {
 	}
 
 	if err := h.db.First(&mon, id).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("toggleMonitor: db.First after toggle failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.JSON(mon)
 }
@@ -213,12 +230,14 @@ func (h *monitorHandler) listSignals(c *fiber.Ctx) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("listSignals: db.First (monitor) failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 
 	var total int64
 	if err := h.db.Model(&models.MonitorSignal{}).Where("monitor_id = ?", id).Count(&total).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("listSignals: db.Count failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 
 	var signals []models.MonitorSignal
@@ -226,7 +245,8 @@ func (h *monitorHandler) listSignals(c *fiber.Ctx) error {
 		Order("created_at DESC").
 		Limit(limit).Offset(offset).
 		Find(&signals).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("listSignals: db.Find failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 
 	return c.JSON(fiber.Map{

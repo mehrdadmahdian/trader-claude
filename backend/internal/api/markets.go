@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -54,7 +55,8 @@ func (h *marketsHandler) listSymbols(c *fiber.Ctx) error {
 
 	symbols, err := a.FetchSymbols(c.Context(), market)
 	if err != nil {
-		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("listSymbols: FetchSymbols failed for adapter=%s market=%s: %v", adapterID, market, err)
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"error": "failed to fetch symbols from upstream"})
 	}
 
 	result := make([]fiber.Map, 0, len(symbols))
@@ -119,7 +121,8 @@ func (h *marketsHandler) getCandles(c *fiber.Ctx) error {
 
 	candles, err := h.ds.GetCandles(c.Context(), a, symbol, market, timeframe, from, to)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("getCandles: GetCandles failed for adapter=%s symbol=%s timeframe=%s: %v", adapterID, symbol, timeframe, err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 
 	result := make([]fiber.Map, 0, len(candles))

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -55,7 +56,7 @@ func parsePosID(c *fiber.Ctx) (int64, error) {
 func (h *portfolioHandler) create(c *fiber.Ctx) error {
 	var req portfolio.CreatePortfolioReq
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
 	if err := validation.Validate(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request parameters"})
@@ -65,7 +66,8 @@ func (h *portfolioHandler) create(c *fiber.Ctx) error {
 	}
 	p, err := h.svc.CreatePortfolio(c.Context(), auth.GetUserID(c), req)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("portfolioHandler.create: CreatePortfolio failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": p})
 }
@@ -73,7 +75,8 @@ func (h *portfolioHandler) create(c *fiber.Ctx) error {
 func (h *portfolioHandler) list(c *fiber.Ctx) error {
 	portfolios, err := h.svc.ListPortfolios(c.Context(), auth.GetUserID(c))
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("portfolioHandler.list: ListPortfolios failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.JSON(fiber.Map{"data": portfolios})
 }
@@ -97,11 +100,12 @@ func (h *portfolioHandler) update(c *fiber.Ctx) error {
 	}
 	var req portfolio.UpdatePortfolioReq
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
 	p, err := h.svc.UpdatePortfolio(c.Context(), id, auth.GetUserID(c), req)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("portfolioHandler.update: UpdatePortfolio failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.JSON(fiber.Map{"data": p})
 }
@@ -112,7 +116,8 @@ func (h *portfolioHandler) delete(c *fiber.Ctx) error {
 		return err
 	}
 	if err := h.svc.DeletePortfolio(c.Context(), id, auth.GetUserID(c)); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("portfolioHandler.delete: DeletePortfolio failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -140,14 +145,15 @@ func (h *portfolioHandler) addPosition(c *fiber.Ctx) error {
 	}
 	var req portfolio.AddPositionReq
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
 	if err := validation.Validate(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request parameters"})
 	}
 	pos, err := h.svc.AddPosition(c.Context(), id, req)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("portfolioHandler.addPosition: AddPosition failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": pos})
 }
@@ -172,11 +178,12 @@ func (h *portfolioHandler) updatePosition(c *fiber.Ctx) error {
 	}
 	var req portfolio.UpdatePositionReq
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
 	pos, err := h.svc.UpdatePosition(c.Context(), posID, req)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("portfolioHandler.updatePosition: UpdatePosition failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.JSON(fiber.Map{"data": pos})
 }
@@ -200,7 +207,8 @@ func (h *portfolioHandler) deletePosition(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "position not found"})
 	}
 	if err := h.svc.DeletePosition(c.Context(), posID); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("portfolioHandler.deletePosition: DeletePosition failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -216,11 +224,12 @@ func (h *portfolioHandler) addTransaction(c *fiber.Ctx) error {
 	}
 	var req portfolio.AddTransactionReq
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
 	tx, err := h.svc.AddTransaction(c.Context(), id, req)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("portfolioHandler.addTransaction: AddTransaction failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": tx})
 }
@@ -247,7 +256,8 @@ func (h *portfolioHandler) listTransactions(c *fiber.Ctx) error {
 	}
 	txs, total, err := h.svc.ListTransactions(c.Context(), id, page, limit)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("portfolioHandler.listTransactions: ListTransactions failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.JSON(fiber.Map{"data": txs, "total": total, "page": page, "page_size": limit})
 }
@@ -263,7 +273,8 @@ func (h *portfolioHandler) equityCurve(c *fiber.Ctx) error {
 	}
 	points, err := h.svc.GetEquityCurve(c.Context(), id)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("portfolioHandler.equityCurve: GetEquityCurve failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.JSON(fiber.Map{"points": points})
 }

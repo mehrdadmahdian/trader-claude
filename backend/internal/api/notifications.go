@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"log"
 
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
@@ -36,7 +37,8 @@ func (h *notificationHandler) listNotifications(c *fiber.Ctx) error {
 
 	var notifs []models.Notification
 	if err := h.db.Where("user_id = ?", userID).Order("created_at DESC").Limit(limit).Offset(offset).Find(&notifs).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("listNotifications: db.Find failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 
 	return c.JSON(fiber.Map{
@@ -56,7 +58,8 @@ func (h *notificationHandler) markRead(c *fiber.Ctx) error {
 	if err := h.db.Model(&models.Notification{}).
 		Where("id = ? AND user_id = ?", id, auth.GetUserID(c)).
 		Update("read", true).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("markRead: db.Update failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -66,7 +69,8 @@ func (h *notificationHandler) markAllRead(c *fiber.Ctx) error {
 	if err := h.db.Model(&models.Notification{}).
 		Where("user_id = ? AND read = ?", auth.GetUserID(c), false).
 		Update("read", true).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("markAllRead: db.Update failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }

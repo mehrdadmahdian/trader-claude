@@ -134,10 +134,14 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
+			msg := "internal server error"
 			if e, ok := err.(*fiber.Error); ok {
 				code = e.Code
+				msg = e.Message
+			} else {
+				log.Printf("unhandled error: %v", err)
 			}
-			return c.Status(code).JSON(fiber.Map{"error": err.Error()})
+			return c.Status(code).JSON(fiber.Map{"error": msg})
 		},
 	})
 

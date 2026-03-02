@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -49,7 +50,8 @@ func (h *newsHandler) listNews(c *fiber.Ctx) error {
 
 	var items []models.NewsItem
 	if err := query.Limit(limit).Offset(offset).Find(&items).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("listNews: db.Find failed: %v", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 
 	return c.JSON(fiber.Map{
@@ -74,7 +76,8 @@ func (h *newsHandler) newsBySymbol(c *fiber.Ctx) error {
 		Order("published_at DESC").
 		Limit(limit).
 		Find(&items).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Printf("newsBySymbol: db.Find failed for symbol=%s: %v", symbol, err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}
 
 	return c.JSON(fiber.Map{"data": items})
