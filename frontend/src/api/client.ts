@@ -39,11 +39,13 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config
 
     if (error.response?.status !== 401 || originalRequest._retry) {
-      // Normalize API error messages for non-401 errors
-      if (error.response?.data?.error) {
-        return Promise.reject(new Error(error.response.data.error))
+      // Normalize and sanitize API error messages
+      const raw = error.response?.data?.error
+      if (raw && typeof raw === 'string') {
+        const safeMessage = raw.length > 200 ? 'An error occurred. Please try again.' : raw
+        return Promise.reject(new Error(safeMessage))
       }
-      return Promise.reject(error)
+      return Promise.reject(new Error('An unexpected error occurred'))
     }
 
     // Don't retry refresh/login endpoints — clear auth and redirect instead
