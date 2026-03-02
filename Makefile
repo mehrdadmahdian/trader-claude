@@ -1,4 +1,4 @@
-.PHONY: up down logs build restart test lint seed migrate clean help
+.PHONY: up down logs build restart test lint seed migrate clean help security-check security-check-backend security-check-frontend
 
 # Default target
 .DEFAULT_GOAL := help
@@ -93,6 +93,16 @@ dev-frontend: ## Run frontend locally
 test: backend-test frontend-test ## Run all tests
 
 lint: backend-lint frontend-lint ## Run all linters
+
+## ── Security ───────────────────────────────────────────────────────────
+security-check-backend: ## Run govulncheck on backend
+	docker compose exec backend go install golang.org/x/vuln/cmd/govulncheck@latest
+	docker compose exec backend govulncheck ./...
+
+security-check-frontend: ## Run npm audit on frontend
+	docker compose exec frontend npm audit --audit-level=high
+
+security-check: security-check-backend security-check-frontend ## Run all security vulnerability scans
 
 ## ── Setup ──────────────────────────────────────────────────────────────
 setup: ## First-time setup (copy .env, create dirs)
