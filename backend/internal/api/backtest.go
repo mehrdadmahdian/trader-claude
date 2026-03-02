@@ -15,6 +15,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/trader-claude/backend/internal/adapter"
+	"github.com/trader-claude/backend/internal/auth"
 	"github.com/trader-claude/backend/internal/backtest"
 	"github.com/trader-claude/backend/internal/models"
 	"github.com/trader-claude/backend/internal/registry"
@@ -189,6 +190,7 @@ func (h *backtestHandler) runBacktest(c *fiber.Ctx) error {
 		EndDate:      req.EndDate,
 		Params:       paramsJSON,
 		Status:       models.BacktestStatusPending,
+		UserID:       auth.GetUserID(c),
 	}
 
 	if err := h.db.WithContext(c.Context()).Create(&bt).Error; err != nil {
@@ -350,9 +352,11 @@ func (h *backtestHandler) failBacktest(ctx context.Context, btID int64, msg stri
 
 // listRuns handles GET /api/v1/backtest/runs
 func (h *backtestHandler) listRuns(c *fiber.Ctx) error {
+	userID := auth.GetUserID(c)
 	var runs []models.Backtest
 	if err := h.db.WithContext(c.Context()).
 		Select("id, name, strategy_name, symbol, market, timeframe, start_date, end_date, params, status, metrics, error_message, started_at, completed_at, created_at, updated_at").
+		Where("user_id = ?", userID).
 		Order("created_at DESC").
 		Limit(50).
 		Find(&runs).Error; err != nil {
@@ -374,8 +378,9 @@ func (h *backtestHandler) getRun(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
 	}
 
+	userID := auth.GetUserID(c)
 	var bt models.Backtest
-	if err := h.db.WithContext(c.Context()).First(&bt, id).Error; err != nil {
+	if err := h.db.WithContext(c.Context()).Where("id = ? AND user_id = ?", id, userID).First(&bt).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "backtest not found"})
 		}
@@ -401,7 +406,8 @@ func (h *backtestHandler) deleteRun(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
 	}
 
-	result := h.db.WithContext(c.Context()).Delete(&models.Backtest{}, id)
+	userID := auth.GetUserID(c)
+	result := h.db.WithContext(c.Context()).Where("user_id = ?", userID).Delete(&models.Backtest{}, id)
 	if result.Error != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to delete backtest"})
 	}

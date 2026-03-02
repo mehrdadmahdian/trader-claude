@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"github.com/trader-claude/backend/internal/auth"
 	"github.com/trader-claude/backend/internal/portfolio"
 )
 
@@ -58,7 +59,7 @@ func (h *portfolioHandler) create(c *fiber.Ctx) error {
 	if req.Name == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name is required"})
 	}
-	p, err := h.svc.CreatePortfolio(c.Context(), req)
+	p, err := h.svc.CreatePortfolio(c.Context(), auth.GetUserID(c), req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -66,7 +67,7 @@ func (h *portfolioHandler) create(c *fiber.Ctx) error {
 }
 
 func (h *portfolioHandler) list(c *fiber.Ctx) error {
-	portfolios, err := h.svc.ListPortfolios(c.Context())
+	portfolios, err := h.svc.ListPortfolios(c.Context(), auth.GetUserID(c))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -78,7 +79,7 @@ func (h *portfolioHandler) get(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	p, positions, err := h.svc.GetPortfolioWithPositions(c.Context(), id)
+	p, positions, err := h.svc.GetPortfolioWithPositions(c.Context(), id, auth.GetUserID(c))
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "portfolio not found"})
 	}
@@ -94,7 +95,7 @@ func (h *portfolioHandler) update(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
-	p, err := h.svc.UpdatePortfolio(c.Context(), id, req)
+	p, err := h.svc.UpdatePortfolio(c.Context(), id, auth.GetUserID(c), req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -106,7 +107,7 @@ func (h *portfolioHandler) delete(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	if err := h.svc.DeletePortfolio(c.Context(), id); err != nil {
+	if err := h.svc.DeletePortfolio(c.Context(), id, auth.GetUserID(c)); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
@@ -117,7 +118,7 @@ func (h *portfolioHandler) summary(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	sum, err := h.svc.GetSummary(c.Context(), id)
+	sum, err := h.svc.GetSummary(c.Context(), id, auth.GetUserID(c))
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "portfolio not found"})
 	}

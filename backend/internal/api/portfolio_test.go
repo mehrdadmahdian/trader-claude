@@ -36,6 +36,11 @@ func newPortfolioTestApp(t *testing.T) *fiber.App {
 	app := fiber.New(fiber.Config{ErrorHandler: func(c *fiber.Ctx, err error) error {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}})
+	// Inject a test user_id so auth.GetUserID(c) returns a consistent non-zero value.
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals("user_id", int64(1))
+		return c.Next()
+	})
 	v1 := app.Group("/api/v1")
 	h.registerRoutes(v1)
 	return app

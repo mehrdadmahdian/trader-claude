@@ -31,7 +31,7 @@ type PositionUpdateEntry struct {
 	UnrealizedPnLPct float64 `json:"unrealized_pnl_pct"`
 }
 
-func portfolioLiveWS(svc *portfolio.Service) func(*websocket.Conn) {
+func portfolioLiveWS(svc *portfolio.Service, userID int64) func(*websocket.Conn) {
 	return func(conn *websocket.Conn) {
 		idStr := conn.Params("id")
 		portfolioID, err := strconv.ParseInt(idStr, 10, 64)
@@ -42,7 +42,7 @@ func portfolioLiveWS(svc *portfolio.Service) func(*websocket.Conn) {
 		}
 
 		// Send immediately on connect
-		if err := sendPortfolioUpdate(conn, svc, portfolioID); err != nil {
+		if err := sendPortfolioUpdate(conn, svc, portfolioID, userID); err != nil {
 			return
 		}
 
@@ -64,7 +64,7 @@ func portfolioLiveWS(svc *portfolio.Service) func(*websocket.Conn) {
 			case <-done:
 				return
 			case <-ticker.C:
-				if err := sendPortfolioUpdate(conn, svc, portfolioID); err != nil {
+				if err := sendPortfolioUpdate(conn, svc, portfolioID, userID); err != nil {
 					return
 				}
 			}
@@ -72,7 +72,7 @@ func portfolioLiveWS(svc *portfolio.Service) func(*websocket.Conn) {
 	}
 }
 
-func sendPortfolioUpdate(conn *websocket.Conn, svc *portfolio.Service, portfolioID int64) error {
+func sendPortfolioUpdate(conn *websocket.Conn, svc *portfolio.Service, portfolioID, userID int64) error {
 	ctx := context.Background()
 
 	if err := svc.RecalculatePortfolio(ctx, portfolioID); err != nil {
@@ -80,12 +80,12 @@ func sendPortfolioUpdate(conn *websocket.Conn, svc *portfolio.Service, portfolio
 		log.Printf("portfolio WS: recalculate error for %d: %v", portfolioID, err)
 	}
 
-	_, positions, err := svc.GetPortfolioWithPositions(ctx, portfolioID)
+	_, positions, err := svc.GetPortfolioWithPositions(ctx, portfolioID, userID)
 	if err != nil {
 		return err
 	}
 
-	sum, err := svc.GetSummary(ctx, portfolioID)
+	sum, err := svc.GetSummary(ctx, portfolioID, userID)
 	if err != nil {
 		return err
 	}

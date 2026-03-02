@@ -83,7 +83,7 @@ func NewService(db *gorm.DB, price PriceFetcher) *Service {
 
 // --- Portfolio CRUD ---
 
-func (s *Service) CreatePortfolio(ctx context.Context, req CreatePortfolioReq) (*models.Portfolio, error) {
+func (s *Service) CreatePortfolio(ctx context.Context, userID int64, req CreatePortfolioReq) (*models.Portfolio, error) {
 	if req.Currency == "" {
 		req.Currency = "USD"
 	}
@@ -98,6 +98,7 @@ func (s *Service) CreatePortfolio(ctx context.Context, req CreatePortfolioReq) (
 		InitialCash: req.InitialCash,
 		CurrentCash: req.InitialCash,
 		IsActive:    true,
+		UserID:      userID,
 	}
 	if err := s.db.WithContext(ctx).Create(p).Error; err != nil {
 		return nil, err
@@ -105,25 +106,25 @@ func (s *Service) CreatePortfolio(ctx context.Context, req CreatePortfolioReq) (
 	return p, nil
 }
 
-func (s *Service) GetPortfolio(ctx context.Context, id int64) (*models.Portfolio, error) {
+func (s *Service) GetPortfolio(ctx context.Context, id, userID int64) (*models.Portfolio, error) {
 	var p models.Portfolio
-	if err := s.db.WithContext(ctx).First(&p, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&p).Error; err != nil {
 		return nil, err
 	}
 	return &p, nil
 }
 
-func (s *Service) ListPortfolios(ctx context.Context) ([]*models.Portfolio, error) {
+func (s *Service) ListPortfolios(ctx context.Context, userID int64) ([]*models.Portfolio, error) {
 	var portfolios []*models.Portfolio
-	if err := s.db.WithContext(ctx).Where("is_active = ?", true).Find(&portfolios).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("is_active = ? AND user_id = ?", true, userID).Find(&portfolios).Error; err != nil {
 		return nil, err
 	}
 	return portfolios, nil
 }
 
-func (s *Service) UpdatePortfolio(ctx context.Context, id int64, req UpdatePortfolioReq) (*models.Portfolio, error) {
+func (s *Service) UpdatePortfolio(ctx context.Context, id, userID int64, req UpdatePortfolioReq) (*models.Portfolio, error) {
 	var p models.Portfolio
-	if err := s.db.WithContext(ctx).First(&p, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&p).Error; err != nil {
 		return nil, err
 	}
 	if req.Name != "" {
@@ -141,12 +142,12 @@ func (s *Service) UpdatePortfolio(ctx context.Context, id int64, req UpdatePortf
 	return &p, nil
 }
 
-func (s *Service) DeletePortfolio(ctx context.Context, id int64) error {
-	return s.db.WithContext(ctx).Delete(&models.Portfolio{}, id).Error
+func (s *Service) DeletePortfolio(ctx context.Context, id, userID int64) error {
+	return s.db.WithContext(ctx).Where("user_id = ?", userID).Delete(&models.Portfolio{}, id).Error
 }
 
-func (s *Service) GetPortfolioWithPositions(ctx context.Context, id int64) (*models.Portfolio, []models.Position, error) {
-	p, err := s.GetPortfolio(ctx, id)
+func (s *Service) GetPortfolioWithPositions(ctx context.Context, id, userID int64) (*models.Portfolio, []models.Position, error) {
+	p, err := s.GetPortfolio(ctx, id, userID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -157,8 +158,8 @@ func (s *Service) GetPortfolioWithPositions(ctx context.Context, id int64) (*mod
 	return p, positions, nil
 }
 
-func (s *Service) GetSummary(ctx context.Context, id int64) (*PortfolioSummary, error) {
-	_, positions, err := s.GetPortfolioWithPositions(ctx, id)
+func (s *Service) GetSummary(ctx context.Context, id, userID int64) (*PortfolioSummary, error) {
+	_, positions, err := s.GetPortfolioWithPositions(ctx, id, userID)
 	if err != nil {
 		return nil, err
 	}

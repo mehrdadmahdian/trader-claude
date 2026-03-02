@@ -10,6 +10,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
+	"github.com/trader-claude/backend/internal/auth"
 	"github.com/trader-claude/backend/internal/models"
 )
 
@@ -29,12 +30,13 @@ func (h *notificationHandler) listNotifications(c *fiber.Ctx) error {
 		limit = 100
 	}
 	offset := c.QueryInt("offset", 0)
+	userID := auth.GetUserID(c)
 
 	var total int64
-	h.db.Model(&models.Notification{}).Count(&total)
+	h.db.Model(&models.Notification{}).Where("user_id = ?", userID).Count(&total)
 
 	var notifs []models.Notification
-	if err := h.db.Order("created_at DESC").Limit(limit).Offset(offset).Find(&notifs).Error; err != nil {
+	if err := h.db.Where("user_id = ?", userID).Order("created_at DESC").Limit(limit).Offset(offset).Find(&notifs).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
@@ -53,7 +55,7 @@ func (h *notificationHandler) markRead(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
 	}
 	if err := h.db.Model(&models.Notification{}).
-		Where("id = ?", id).
+		Where("id = ? AND user_id = ?", id, auth.GetUserID(c)).
 		Update("read", true).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -63,7 +65,7 @@ func (h *notificationHandler) markRead(c *fiber.Ctx) error {
 // POST /api/v1/notifications/read-all
 func (h *notificationHandler) markAllRead(c *fiber.Ctx) error {
 	if err := h.db.Model(&models.Notification{}).
-		Where("read = ?", false).
+		Where("user_id = ? AND read = ?", auth.GetUserID(c), false).
 		Update("read", true).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -73,7 +75,7 @@ func (h *notificationHandler) markAllRead(c *fiber.Ctx) error {
 // GET /api/v1/notifications/unread-count
 func (h *notificationHandler) unreadCount(c *fiber.Ctx) error {
 	var count int64
-	h.db.Model(&models.Notification{}).Where("read = ?", false).Count(&count)
+	h.db.Model(&models.Notification{}).Where("user_id = ? AND read = ?", auth.GetUserID(c), false).Count(&count)
 	return c.JSON(fiber.Map{"count": count})
 }
 

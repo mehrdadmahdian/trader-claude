@@ -38,11 +38,13 @@ func (s *stubPriceService) GetPrice(_ context.Context, _, symbol string) (float6
 	return 0, errors.New("price not found")
 }
 
+const testUserID = int64(1)
+
 func TestCreateAndGetPortfolio(t *testing.T) {
 	db := newTestDB(t)
 	svc := NewService(db, &stubPriceService{})
 
-	p, err := svc.CreatePortfolio(context.Background(), CreatePortfolioReq{
+	p, err := svc.CreatePortfolio(context.Background(), testUserID, CreatePortfolioReq{
 		Name:        "Test Portfolio",
 		Description: "desc",
 		Type:        models.PortfolioTypeManual,
@@ -59,7 +61,7 @@ func TestCreateAndGetPortfolio(t *testing.T) {
 		t.Errorf("expected CurrentCash=10000, got %f", p.CurrentCash)
 	}
 
-	got, err := svc.GetPortfolio(context.Background(), p.ID)
+	got, err := svc.GetPortfolio(context.Background(), p.ID, testUserID)
 	if err != nil {
 		t.Fatalf("GetPortfolio: %v", err)
 	}
@@ -73,7 +75,7 @@ func TestAddPositionAndRecalculate(t *testing.T) {
 	stub := &stubPriceService{prices: map[string]float64{"BTCUSDT": 50000.0}}
 	svc := NewService(db, stub)
 
-	p, err := svc.CreatePortfolio(context.Background(), CreatePortfolioReq{
+	p, err := svc.CreatePortfolio(context.Background(), testUserID, CreatePortfolioReq{
 		Name: "BTC Portfolio", Type: models.PortfolioTypeManual, InitialCash: 100000, Currency: "USD",
 	})
 	if err != nil {
@@ -99,7 +101,7 @@ func TestAddPositionAndRecalculate(t *testing.T) {
 		t.Fatalf("RecalculatePortfolio: %v", err)
 	}
 
-	updated, err := svc.GetPortfolio(context.Background(), p.ID)
+	updated, err := svc.GetPortfolio(context.Background(), p.ID, testUserID)
 	if err != nil {
 		t.Fatalf("GetPortfolio after recalculate: %v", err)
 	}
@@ -126,7 +128,7 @@ func TestGetEquityCurve(t *testing.T) {
 	db := newTestDB(t)
 	svc := NewService(db, &stubPriceService{})
 
-	p, err := svc.CreatePortfolio(context.Background(), CreatePortfolioReq{
+	p, err := svc.CreatePortfolio(context.Background(), testUserID, CreatePortfolioReq{
 		Name: "EQ Portfolio", Type: models.PortfolioTypeManual, InitialCash: 0, Currency: "USD",
 	})
 	if err != nil {
@@ -163,7 +165,7 @@ func TestListTransactions_Pagination(t *testing.T) {
 	db := newTestDB(t)
 	svc := NewService(db, &stubPriceService{})
 
-	p, err := svc.CreatePortfolio(context.Background(), CreatePortfolioReq{
+	p, err := svc.CreatePortfolio(context.Background(), testUserID, CreatePortfolioReq{
 		Name: "TX Portfolio", Type: models.PortfolioTypeManual, InitialCash: 0, Currency: "USD",
 	})
 	if err != nil {

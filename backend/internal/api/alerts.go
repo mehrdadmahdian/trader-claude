@@ -4,6 +4,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 
+	"github.com/trader-claude/backend/internal/auth"
 	"github.com/trader-claude/backend/internal/models"
 	"github.com/trader-claude/backend/internal/price"
 )
@@ -53,6 +54,7 @@ func (h *alertHandler) createAlert(c *fiber.Ctx) error {
 		Status:           models.AlertStatusActive,
 		RecurringEnabled: req.RecurringEnabled,
 		CooldownMinutes:  req.CooldownMinutes,
+		UserID:           auth.GetUserID(c),
 	}
 
 	// For price_change_pct alerts, store the current price as the base reference.
@@ -71,7 +73,7 @@ func (h *alertHandler) createAlert(c *fiber.Ctx) error {
 // GET /api/v1/alerts
 func (h *alertHandler) listAlerts(c *fiber.Ctx) error {
 	var alerts []models.Alert
-	if err := h.db.Order("created_at DESC").Find(&alerts).Error; err != nil {
+	if err := h.db.Where("user_id = ?", auth.GetUserID(c)).Order("created_at DESC").Find(&alerts).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.JSON(fiber.Map{"data": alerts})
@@ -83,7 +85,7 @@ func (h *alertHandler) deleteAlert(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
 	}
-	if err := h.db.Delete(&models.Alert{}, id).Error; err != nil {
+	if err := h.db.Where("user_id = ?", auth.GetUserID(c)).Delete(&models.Alert{}, id).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
@@ -96,7 +98,7 @@ func (h *alertHandler) toggleAlert(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
 	}
 	var a models.Alert
-	if err := h.db.First(&a, id).Error; err != nil {
+	if err := h.db.Where("id = ? AND user_id = ?", id, auth.GetUserID(c)).First(&a).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "alert not found"})
 	}
 	newStatus := models.AlertStatusDisabled
