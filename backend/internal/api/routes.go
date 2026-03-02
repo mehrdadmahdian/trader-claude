@@ -1,8 +1,11 @@
 package api
 
 import (
+	"time"
+
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
@@ -18,6 +21,21 @@ import (
 	"github.com/trader-claude/backend/internal/ws"
 )
 
+// wsRequireAuth wraps a WebSocket handler to require a valid JWT token
+// provided as a ?token= query parameter. If the token is missing or invalid,
+// the connection is closed with an error message.
+func wsRequireAuth(authSvc *auth.AuthService, handler func(*websocket.Conn)) func(*websocket.Conn) {
+	return func(conn *websocket.Conn) {
+		token := conn.Query("token")
+		if _, err := authSvc.ValidateAccessToken(token); err != nil {
+			_ = conn.WriteJSON(fiber.Map{"type": "error", "message": "unauthorized"})
+			conn.Close()
+			return
+		}
+		handler(conn)
+	}
+}
+
 // RegisterRoutes wires all HTTP and WebSocket routes onto the Fiber app
 func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub, version string, pool *worker.WorkerPool, ds *adapter.DataService, mgr *replay.Manager, monMgr *monitor.Manager, authSvc *auth.AuthService) {
 	// Health
@@ -29,8 +47,18 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 
 	// --- Public auth routes ---
 	authH := newAuthHandler(authSvc)
+	loginLimiter := limiter.New(limiter.Config{
+		Max:        5,
+		Expiration: time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"error": "too many login attempts, try again later"})
+		},
+	})
 	v1.Post("/auth/register", authH.register)
-	v1.Post("/auth/login", authH.login)
+	v1.Post("/auth/login", loginLimiter, authH.login)
 	v1.Post("/auth/refresh", authH.refresh)
 
 	// --- Protected routes (require valid JWT) ---
@@ -151,17 +179,17 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	})
 
 	// Market data WebSocket (hub)
-	app.Get("/ws", websocket.New(hub.ServeWS))
+	app.Get("/ws", websocket.New(wsRequireAuth(authSvc, hub.ServeWS)))
 
 	// Backtest progress WebSocket
-	app.Get("/ws/backtest/:id/progress", websocket.New(bh.progressWS))
+	app.Get("/ws/backtest/:id/progress", websocket.New(wsRequireAuth(authSvc, bh.progressWS)))
 
 	// Replay WebSocket
-	app.Get("/ws/replay/:replay_id", websocket.New(rh.replayWS))
+	app.Get("/ws/replay/:replay_id", websocket.New(wsRequireAuth(authSvc, rh.replayWS)))
 
 	// Notifications WebSocket
-	app.Get("/ws/notifications", websocket.New(nfh.notificationsWS))
+	app.Get("/ws/notifications", websocket.New(wsRequireAuth(authSvc, nfh.notificationsWS)))
 
 	// Monitor signals WebSocket (multiplexed)
-	app.Get("/ws/monitors/signals", websocket.New(signalsWS(rdb)))
+	app.Get("/ws/monitors/signals", websocket.New(wsRequireAuth(authSvc, signalsWS(rdb))))
 }
