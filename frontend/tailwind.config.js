@@ -71,11 +71,21 @@ export default {
           from: { opacity: '0', transform: 'translateY(4px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
+        'flash-up': {
+          '0%':   { backgroundColor: 'rgb(220 252 231)' },
+          '100%': { backgroundColor: 'transparent' },
+        },
+        'flash-down': {
+          '0%':   { backgroundColor: 'rgb(254 226 226)' },
+          '100%': { backgroundColor: 'transparent' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out',
-        'fade-in': 'fade-in 0.2s ease-out',
+        'accordion-up':   'accordion-up 0.2s ease-out',
+        'fade-in':        'fade-in 0.2s ease-out',
+        'flash-up':       'flash-up 0.4s ease-out',
+        'flash-down':     'flash-down 0.4s ease-out',
       },
       fontFamily: {
         mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
