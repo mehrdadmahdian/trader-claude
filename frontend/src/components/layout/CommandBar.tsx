@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   TrendingUp, LayoutDashboard, CandlestickChart, FlaskConical,
@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import { useThemeStore, useNotificationStore, useMarketStore } from '@/stores'
 import { useAuthStore } from '@/stores/authStore'
 import { useMarkAllRead } from '@/hooks/useNotifications'
-import { useMarkets, useSymbols } from '@/hooks/useMarketData'
+import { useSymbols } from '@/hooks/useMarketData'
 import type { MarketSymbol } from '@/types'
 
 const TIMEFRAMES = ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w']
@@ -40,12 +40,25 @@ export function CommandBar() {
   const setSelectedSymbol    = useMarketStore((s) => s.setSelectedSymbol)
   const setSelectedTimeframe = useMarketStore((s) => s.setSelectedTimeframe)
 
-  const [adapter] = useState('binance')
-  const { data: adapters } = useMarkets()
+  const adapter = 'binance'
   const { data: symbols }  = useSymbols(adapter, selectedMarket)
 
   const [showSymbolSearch, setShowSymbolSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+
+  const symbolPickerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showSymbolSearch) return
+    function handlePointerDown(e: PointerEvent) {
+      if (symbolPickerRef.current && !symbolPickerRef.current.contains(e.target as Node)) {
+        setShowSymbolSearch(false)
+        setSearchQuery('')
+      }
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [showSymbolSearch])
 
   const filteredSymbols = useMemo(() => {
     if (!symbols) return []
@@ -64,9 +77,6 @@ export function CommandBar() {
 
   const recentNotifications = notifications.slice(0, 5)
 
-  // suppress unused variable warning — adapters fetched for future multi-adapter support
-  void adapters
-
   return (
     <header className="h-[52px] bg-white border-b border-slate-200 shadow-sm flex items-center gap-1 px-4 shrink-0 z-40">
       {/* ── Logo ── */}
@@ -80,11 +90,12 @@ export function CommandBar() {
       </div>
 
       {/* ── Global symbol picker ── */}
-      <div className="relative mr-1">
+      <div className="relative mr-1" ref={symbolPickerRef}>
         <button
           onClick={() => setShowSymbolSearch((v) => !v)}
           className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 bg-white text-sm shadow-sm hover:border-slate-300 hover:shadow-md transition-all duration-150 min-w-[130px]"
           aria-expanded={showSymbolSearch}
+          aria-haspopup="listbox"
         >
           <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <span className={cn('truncate', selectedSymbol ? 'text-slate-900 font-medium font-mono' : 'text-slate-400')}>
@@ -103,15 +114,23 @@ export function CommandBar() {
                 className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setShowSymbolSearch(false)
+                    setSearchQuery('')
+                  }
+                }}
               />
             </div>
-            <ul className="max-h-60 overflow-y-auto">
+            <ul className="max-h-60 overflow-y-auto" role="listbox">
               {filteredSymbols.length === 0 ? (
                 <li className="px-3 py-4 text-sm text-slate-400 text-center">No symbols found</li>
               ) : (
                 filteredSymbols.map((sym) => (
                   <li key={sym.id}>
                     <button
+                      role="option"
+                      aria-selected={sym.id === selectedSymbol}
                       className="w-full px-3 py-2.5 text-left text-sm hover:bg-slate-50 transition-colors flex items-center justify-between"
                       onClick={() => handleSymbolSelect(sym)}
                     >

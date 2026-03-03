@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { subDays, formatISO } from 'date-fns'
 import { CandlestickChart as ChartIcon } from 'lucide-react'
 import { CandlestickChart } from '@/components/chart/CandlestickChart'
 import { WatchlistPanel } from '@/components/dashboard/WatchlistPanel'
@@ -8,24 +9,22 @@ import { AlertsFeedPanel } from '@/components/dashboard/AlertsFeedPanel'
 import { useCandles } from '@/hooks/useMarketData'
 import { useMarketStore } from '@/stores'
 
-// Rolling 7-day window for candle fetches
-function useCandleWindow() {
-  return useMemo(() => {
-    const to = new Date()
-    const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000)
-    return {
-      from: from.toISOString(),
-      to: to.toISOString(),
-    }
-  }, [])
-}
-
 export function Dashboard() {
   const selectedSymbol = useMarketStore((s) => s.selectedSymbol)
   const selectedMarket = useMarketStore((s) => s.selectedMarket)
   const selectedTimeframe = useMarketStore((s) => s.selectedTimeframe)
 
-  const { from, to } = useCandleWindow()
+  const { from, to } = useMemo(() => {
+    const daysBack: Record<string, number> = {
+      '1m': 1, '5m': 3, '15m': 7, '30m': 14,
+      '1h': 30, '4h': 60, '1d': 365, '1w': 730,
+    }
+    const now = new Date()
+    return {
+      from: formatISO(subDays(now, daysBack[selectedTimeframe] ?? 30)),
+      to: formatISO(now),
+    }
+  }, [selectedTimeframe])
 
   // useCandles has an internal `enabled` guard: Boolean(adapter && symbol && timeframe && from && to)
   // Passing empty string for symbol when none is selected prevents the query from firing.

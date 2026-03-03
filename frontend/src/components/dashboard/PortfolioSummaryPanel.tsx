@@ -1,6 +1,15 @@
+import { Link } from 'react-router-dom'
 import { Briefcase, TrendingUp, TrendingDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePortfolioStore } from '@/stores'
+
+const usdFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 2,
+})
+const formatUSD = (n: number) => usdFormatter.format(n)
+const formatPct = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`
 
 function StatCard({
   label,
@@ -36,15 +45,6 @@ function StatCard({
 export function PortfolioSummaryPanel({ className }: { className?: string }) {
   const { summary, positions, activePortfolioId } = usePortfolioStore()
 
-  const formatUSD = (n: number) =>
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 2,
-    }).format(n)
-
-  const formatPct = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`
-
   return (
     <div className={cn("flex flex-col rounded-2xl bg-white shadow-sm border border-slate-100 overflow-hidden", className)}>
       {/* Header */}
@@ -64,9 +64,9 @@ export function PortfolioSummaryPanel({ className }: { className?: string }) {
           <div className="flex flex-col items-center gap-2 py-4 text-center">
             <Briefcase className="w-6 h-6 text-slate-200" />
             <p className="text-xs text-slate-400">No portfolio selected</p>
-            <a href="/portfolio" className="text-xs text-primary hover:underline">
+            <Link to="/portfolio" className="text-xs text-primary hover:underline">
               Open Portfolio →
-            </a>
+            </Link>
           </div>
         ) : (
           <>
