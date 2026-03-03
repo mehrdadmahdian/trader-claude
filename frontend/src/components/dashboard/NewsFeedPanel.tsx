@@ -100,7 +100,7 @@ export function NewsFeedPanel({ className }: { className?: string }) {
   const items: NewsItem[] = data?.data ?? []
 
   return (
-    <div className={cn("flex flex-col h-full bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden", className)}>
+    <div className={cn("flex flex-col h-full bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-100 shrink-0">
         <div className="flex items-center gap-1.5">
