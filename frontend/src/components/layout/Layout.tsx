@@ -1,27 +1,33 @@
 import { useState } from 'react'
-import { Outlet } from 'react-router-dom'
-import { Sidebar } from './Sidebar'
-import { TopBar } from './TopBar'
+import { Outlet, useLocation } from 'react-router-dom'
+import { CommandBar } from './CommandBar'
 import { useNotificationWS } from '@/hooks/useNotifications'
 import { SignalToast } from '@/components/SignalToast'
 import { AIButton } from '@/components/ai/AIButton'
 import { ChatPanel } from '@/components/ai/ChatPanel'
+import { cn } from '@/lib/utils'
 
 export function Layout() {
   const [isChatOpen, setIsChatOpen] = useState(false)
-  useNotificationWS() // connect to /ws/notifications on mount
+  const { pathname } = useLocation()
+  useNotificationWS()
+
+  const isDashboard = pathname === '/'
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <TopBar />
-        <main className="flex-1 overflow-y-auto p-6 animate-fade-in">
+    <div className="flex flex-col h-screen overflow-hidden bg-background">
+      <CommandBar />
+      <main className={cn('flex-1 overflow-hidden', !isDashboard && 'overflow-y-auto')}>
+        {isDashboard ? (
           <Outlet />
-        </main>
-      </div>
+        ) : (
+          <div className="max-w-7xl mx-auto px-6 py-6 animate-fade-in">
+            <Outlet />
+          </div>
+        )}
+      </main>
       <SignalToast />
-      <AIButton onClick={() => setIsChatOpen(o => !o)} isOpen={isChatOpen} />
+      <AIButton onClick={() => setIsChatOpen((o) => !o)} isOpen={isChatOpen} />
       <ChatPanel isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </div>
   )
