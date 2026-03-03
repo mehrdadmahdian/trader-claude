@@ -49,13 +49,13 @@ apiClient.interceptors.response.use(
       return Promise.reject(new Error('An unexpected error occurred'))
     }
 
-    // Don't retry refresh/login endpoints — clear auth and redirect instead
+    // Don't retry refresh/login endpoints — just clear auth and let
+    // initialize()'s catch + ProtectedRoute handle the redirect via React Router
     if (
       originalRequest.url?.includes('/auth/refresh') ||
       originalRequest.url?.includes('/auth/login')
     ) {
       useAuthStore.getState().clearAuth()
-      window.location.href = '/login'
       return Promise.reject(error)
     }
 
