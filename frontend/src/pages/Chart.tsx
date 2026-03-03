@@ -205,13 +205,13 @@ export function Chart() {
   const panelIndicators = activeIndicators.filter((ind) => ind.meta.type === 'panel')
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] gap-4 p-4">
+    <div className="flex flex-col h-full gap-3 px-4 py-3">
       {/* ── Toolbar ── */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         {/* Adapter selector */}
         <div className="relative">
           <select
-            className="appearance-none bg-card border border-border rounded-md pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
+            className="appearance-none h-8 rounded-lg border border-slate-200 bg-white pl-3 pr-7 text-sm shadow-sm text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition cursor-pointer"
             value={selectedAdapter}
             onChange={handleAdapterChange}
             aria-label="Select adapter"
@@ -228,7 +228,7 @@ export function Chart() {
         {/* Symbol search */}
         <div className="relative">
           <button
-            className="flex items-center gap-2 bg-card border border-border rounded-md px-3 py-2 text-sm min-w-[140px] hover:bg-accent transition-colors"
+            className="flex items-center gap-1.5 h-8 bg-white border border-slate-200 rounded-lg px-3 text-sm min-w-[140px] hover:border-slate-300 hover:shadow-md transition-all duration-150 shadow-sm"
             onClick={() => setShowSearch((v) => !v)}
             aria-expanded={showSearch}
             aria-haspopup="listbox"
@@ -241,13 +241,13 @@ export function Chart() {
           </button>
 
           {showSearch && (
-            <div className="absolute z-50 top-full mt-1 w-72 bg-card border border-border rounded-md shadow-lg">
+            <div className="absolute z-50 top-full mt-1 w-72 bg-white border border-slate-200 rounded-xl shadow-xl">
               <div className="p-2 border-b border-border">
                 <input
                   autoFocus
                   type="text"
                   placeholder="Search…"
-                  className="w-full bg-background border border-border rounded px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   aria-label="Symbol search"
@@ -267,7 +267,7 @@ export function Chart() {
                       <button
                         role="option"
                         aria-selected={sym.id === selectedSymbol}
-                        className="w-full px-3 py-2.5 text-left text-sm hover:bg-accent transition-colors flex items-center justify-between"
+                        className="w-full px-3 py-2.5 text-left text-sm hover:bg-slate-50 transition-colors flex items-center justify-between"
                         onClick={() => handleSymbolSelect(sym)}
                       >
                         <span className="font-medium">{sym.id}</span>
@@ -286,15 +286,15 @@ export function Chart() {
         </div>
 
         {/* Timeframe buttons */}
-        <div className="flex items-center gap-1 bg-card border border-border rounded-md p-1">
+        <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
           {timeframes.map((tf) => (
             <button
               key={tf}
               onClick={() => setSelectedTimeframe(tf)}
               className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
                 selectedTimeframe === tf
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               {tf}
@@ -305,7 +305,7 @@ export function Chart() {
         {/* Indicators button */}
         <button
           onClick={() => setIndicatorModalOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm bg-card border border-border rounded-md hover:bg-accent transition-colors"
+          className="flex items-center gap-1.5 h-8 px-3 text-sm bg-white border border-slate-200 rounded-lg shadow-sm hover:border-slate-300 hover:shadow-md transition-all duration-150 text-slate-700"
           aria-label="Open indicators"
         >
           <BarChart2 className="h-4 w-4" />
@@ -317,8 +317,8 @@ export function Chart() {
           onClick={() => setNewsOpen((v) => !v)}
           className={`flex items-center gap-1.5 px-3 py-2 text-sm border rounded-md transition-colors ${
             newsOpen
-              ? 'bg-primary text-primary-foreground border-primary'
-              : 'bg-card border-border hover:bg-accent'
+              ? 'bg-primary text-white border-primary'
+              : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:shadow-md'
           }`}
           aria-label="Toggle news panel"
           aria-pressed={newsOpen}
@@ -340,7 +340,7 @@ export function Chart() {
         <button
           onClick={() => refetch()}
           disabled={isFetching}
-          className="ml-auto flex items-center gap-1.5 px-3 py-2 text-sm bg-card border border-border rounded-md hover:bg-accent transition-colors disabled:opacity-50"
+          className="ml-auto flex items-center gap-1.5 h-8 px-3 text-sm bg-white border border-slate-200 rounded-lg shadow-sm hover:border-slate-300 hover:shadow-md transition-all duration-150 disabled:opacity-50 text-slate-700"
           aria-label="Refresh data"
         >
           <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
@@ -352,7 +352,7 @@ export function Chart() {
       <div className="flex flex-1 gap-0 min-h-0 overflow-hidden">
         {/* Chart column */}
         <div className="flex flex-col flex-1 gap-4 min-h-0 min-w-0 overflow-hidden">
-          <div className="flex-1 bg-card border border-border rounded-lg overflow-hidden min-h-0">
+          <div className="flex-1 bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden min-h-0">
             {!selectedSymbol ? (
               /* Empty state */
               <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
