@@ -33,7 +33,7 @@ function StatCard({
   )
 }
 
-export function PortfolioSummaryPanel() {
+export function PortfolioSummaryPanel({ className }: { className?: string }) {
   const { summary, positions, activePortfolioId } = usePortfolioStore()
 
   const formatUSD = (n: number) =>
@@ -46,7 +46,7 @@ export function PortfolioSummaryPanel() {
   const formatPct = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`
 
   return (
-    <div className="flex flex-col rounded-2xl bg-white shadow-sm border border-slate-100 overflow-hidden">
+    <div className={cn("flex flex-col rounded-2xl bg-white shadow-sm border border-slate-100 overflow-hidden", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0">
         <div className="flex items-center gap-2">

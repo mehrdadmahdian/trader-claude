@@ -69,7 +69,7 @@ function PriceRow({
   )
 }
 
-export function WatchlistPanel() {
+export function WatchlistPanel({ className }: { className?: string }) {
   const ticks = useMarketStore((s) => s.ticks)
   const selectedSymbol = useMarketStore((s) => s.selectedSymbol)
   const setSelectedSymbol = useMarketStore((s) => s.setSelectedSymbol)
@@ -80,7 +80,7 @@ export function WatchlistPanel() {
     : DEFAULT_WATCH
 
   return (
-    <div className="flex flex-col rounded-2xl bg-white shadow-sm border border-slate-100 overflow-hidden h-full">
+    <div className={cn("flex flex-col rounded-2xl bg-white shadow-sm border border-slate-100 overflow-hidden h-full", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0">
         <div className="flex items-center gap-2">

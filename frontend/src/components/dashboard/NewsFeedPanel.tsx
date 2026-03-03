@@ -1,4 +1,5 @@
 import { Newspaper } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { useNewsBySymbol } from '@/hooks/useNews'
 import { useMarketStore } from '@/stores'
@@ -92,14 +93,14 @@ function EmptyState() {
 
 // ── Main panel ──────────────────────────────────────────────────────────────
 
-export default function NewsFeedPanel() {
+export function NewsFeedPanel({ className }: { className?: string }) {
   const selectedSymbol = useMarketStore((s) => s.selectedSymbol)
   const { data, isFetching } = useNewsBySymbol(selectedSymbol, 20)
 
   const items: NewsItem[] = data?.data ?? []
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div className={cn("flex flex-col h-full bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-100 shrink-0">
         <div className="flex items-center gap-1.5">

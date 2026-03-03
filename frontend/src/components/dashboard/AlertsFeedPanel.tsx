@@ -1,4 +1,5 @@
 import { Bell } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { useAlerts } from '@/hooks/useAlerts'
 import { useAlertStore, useNotificationStore } from '@/stores'
@@ -109,7 +110,7 @@ function EmptyState() {
 
 // ── Main panel ──────────────────────────────────────────────────────────────
 
-export default function AlertsFeedPanel() {
+export function AlertsFeedPanel({ className }: { className?: string }) {
   // Populate the alert store via React Query
   useAlerts()
 
@@ -123,7 +124,7 @@ export default function AlertsFeedPanel() {
   const hasItems = recentNotifications.length > 0 || topAlerts.length > 0
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div className={cn("flex flex-col h-full bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-100 shrink-0">
         <div className="flex items-center gap-1.5">

@@ -20,7 +20,7 @@ function useCandleWindow() {
   }, [])
 }
 
-export default function Dashboard() {
+export function Dashboard() {
   const selectedSymbol = useMarketStore((s) => s.selectedSymbol)
   const selectedMarket = useMarketStore((s) => s.selectedMarket)
   const selectedTimeframe = useMarketStore((s) => s.selectedTimeframe)
