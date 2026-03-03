@@ -478,7 +478,7 @@ export function Monitor() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Live Monitors</h1>
+          <h1 className="text-xl font-semibold text-slate-900 tracking-tight">Live Monitors</h1>
           <p className="text-sm text-zinc-400 mt-1">
             Strategy-based real-time market watchers
           </p>

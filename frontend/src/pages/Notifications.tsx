@@ -41,7 +41,7 @@ export function Notifications() {
       {/* Page header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Notifications</h1>
+          <h1 className="text-xl font-semibold text-slate-900 tracking-tight">Notifications</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {total} total · {data?.data.filter((n) => !n.read).length ?? 0} unread
           </p>
