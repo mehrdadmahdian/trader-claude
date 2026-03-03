@@ -136,7 +136,7 @@ func (h *authHandler) me(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "user not found"})
 	}
-	return c.JSON(fiber.Map{"data": user})
+	return c.JSON(user)
 }
 
 func (h *authHandler) updateMe(c *fiber.Ctx) error {
@@ -164,7 +164,7 @@ func (h *authHandler) updateMe(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to update profile"})
 		}
 	}
-	return c.JSON(fiber.Map{"data": user})
+	return c.JSON(user)
 }
 
 func setRefreshCookie(c *fiber.Ctx, token string) {
