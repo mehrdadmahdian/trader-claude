@@ -2,9 +2,13 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Replace the existing page-based layout with a Bloomberg Terminal-style multi-panel workspace. After this phase, the app boots into a command-bar-driven panel grid with 7 working widgets.
+**Goal:** Add Bloomberg Terminal-style multi-panel workspace at `/terminal` alongside the existing app. After this phase, users can switch between the old trading workbench and the new Bloomberg panel viewer.
 
-**Architecture:** WorkspaceLayout replaces Layout.tsx as the root shell. react-grid-layout drives the panel grid. A new CommandBar accepts `TICKER FUNCTION` input and routes to panel widgets. Workspace layouts are persisted per-user in the backend DB.
+**Architecture:** The existing Layout.tsx and all current routes (`/`, `/chart`, `/backtest`, etc.) are untouched. A new `/terminal` route is added, served by WorkspaceLayout. A "Terminal" link is added to the existing CommandBar sidebar nav. react-grid-layout drives the panel grid. Workspace layouts persisted per-user in the backend DB.
+
+**Two apps, one codebase:**
+- `/` → Old app (Layout.tsx) — trading workbench: backtest, strategy design, alerts, portfolio, monitors
+- `/terminal` → Bloomberg workspace (WorkspaceLayout) — research & market viewer: panels, charts, data, fundamentals, screener
 
 **Tech Stack:** react-grid-layout, Zustand (workspaceStore), React Query, Go/Fiber (workspace handler), GORM (Workspace model)
 
@@ -658,22 +662,29 @@ const ComingSoon = ({ label }: { label: string }) => (
   </div>
 )
 
+// Bloomberg terminal focuses on research/market viewing.
+// BT, MON, ALRT are read-only summary views here — full management stays in the old app.
 export const WIDGET_REGISTRY: Record<FunctionCode, React.ComponentType<WidgetProps>> = {
-  GP:   ChartWidget,
-  NEWS: NewsWidget,
-  PORT: PortfolioWidget,
-  WL:   WatchlistWidget,
+  // ── Phase A: research & market widgets ──
+  GP:   ChartWidget,       // candlestick chart
+  NEWS: NewsWidget,        // news feed
+  PORT: PortfolioWidget,   // read-only portfolio summary
+  WL:   WatchlistWidget,   // watchlist
+
+  // ── Read-only views of workbench tools (link back to old app for full control) ──
   ALRT: AlertsWidget,
   BT:   BacktestWidget,
   MON:  MonitorWidget,
   AI:   AIChatWidget,
-  HM:   () => <ComingSoon label="Market Heatmap" />,
-  FA:   () => <ComingSoon label="Fundamentals" />,
-  SCR:  () => <ComingSoon label="Screener" />,
-  CAL:  () => <ComingSoon label="Calendar" />,
-  OPT:  () => <ComingSoon label="Options Chain" />,
-  YCRV: () => <ComingSoon label="Yield Curves" />,
-  RISK: () => <ComingSoon label="Risk Analytics" />,
+
+  // ── Phases B-H: new research widgets (stubbed for now) ──
+  HM:   () => <ComingSoon label="Market Heatmap (Phase B)" />,
+  FA:   () => <ComingSoon label="Fundamentals (Phase D)" />,
+  SCR:  () => <ComingSoon label="Screener (Phase C)" />,
+  CAL:  () => <ComingSoon label="Calendar (Phase E)" />,
+  OPT:  () => <ComingSoon label="Options Chain (Phase G)" />,
+  YCRV: () => <ComingSoon label="Yield Curves (Phase F)" />,
+  RISK: () => <ComingSoon label="Risk Analytics (Phase H)" />,
 }
 
 export function getWidget(code: FunctionCode): React.ComponentType<WidgetProps> {
@@ -1235,21 +1246,30 @@ git commit -m "feat(terminal): add WorkspaceLayout root shell"
 
 ---
 
-## Task A15: Update App.tsx routing
+## Task A15: Add /terminal route to App.tsx (keep all existing routes)
 
 **Files:**
 - Modify: `frontend/src/App.tsx`
 
-**Step 1: Replace App.tsx content**
+**Step 1: Add the `/terminal` route** — existing routes must NOT be touched
 
 ```tsx
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import { useEffect } from 'react'
-import { WorkspaceLayout } from '@/components/terminal/WorkspaceLayout'
+import { Layout } from '@/components/layout/Layout'                    // existing — unchanged
+import { WorkspaceLayout } from '@/components/terminal/WorkspaceLayout' // new
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
-import Login from '@/pages/Login'
+import { Dashboard }     from '@/pages/Dashboard'
+import { Chart }         from '@/pages/Chart'
+import { Backtest }      from '@/pages/Backtest'
+import { Portfolio }     from '@/pages/Portfolio'
+import { Monitor }       from '@/pages/Monitor'
+import { News }          from '@/pages/News'
+import { Alerts }        from '@/pages/Alerts'
+import { Settings }      from '@/pages/Settings'
+import { Notifications } from '@/pages/Notifications'
+import Login    from '@/pages/Login'
 import Register from '@/pages/Register'
-import { Settings } from '@/pages/Settings'
 import { useAuthStore } from '@/stores/authStore'
 
 export function App() {
@@ -1261,11 +1281,30 @@ export function App() {
 
   return (
     <Routes>
-      {/* Public routes */}
+      {/* Public routes — unchanged */}
       <Route path="/login"    element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* Bloomberg terminal workspace — all feature access via command bar */}
+      {/* ── Old app: trading workbench (Layout + sidebar) — ALL UNCHANGED ── */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/"             element={<Dashboard />} />
+        <Route path="/chart"        element={<Chart />} />
+        <Route path="/backtest"     element={<Backtest />} />
+        <Route path="/portfolio"    element={<Portfolio />} />
+        <Route path="/monitor"      element={<Monitor />} />
+        <Route path="/news"         element={<News />} />
+        <Route path="/alerts"       element={<Alerts />} />
+        <Route path="/notifications" element={<Notifications />} />
+        <Route path="/settings"     element={<Settings />} />
+      </Route>
+
+      {/* ── Bloomberg terminal: research & market viewer ── */}
       <Route
         path="/terminal"
         element={
@@ -1274,36 +1313,46 @@ export function App() {
           </ProtectedRoute>
         }
       />
-
-      {/* Settings still as a dedicated page (outside the panel system) */}
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute>
-            <Settings />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Redirect all legacy routes and root to terminal */}
-      <Route path="*" element={<Navigate to="/terminal" replace />} />
     </Routes>
   )
 }
 ```
 
-**Step 2: Verify app boots**
-```bash
-make up
-# Open http://localhost:5173 in browser
-# Expected: redirects to /login, then after login lands on /terminal
-# Expected: command bar + workspace tabs + empty or template panels visible
+**Step 2: Add "Terminal" link to the existing CommandBar nav**
+
+In `frontend/src/components/layout/CommandBar.tsx`, find the `navItems` array and add the terminal entry:
+
+```tsx
+import { Monitor as TerminalIcon } from 'lucide-react'  // or use 'LayoutGrid'
+
+const navItems = [
+  { to: '/',          icon: LayoutDashboard,  label: 'Dashboard' },
+  { to: '/chart',     icon: CandlestickChart, label: 'Chart'     },
+  { to: '/backtest',  icon: FlaskConical,     label: 'Backtest'  },
+  { to: '/portfolio', icon: Briefcase,        label: 'Portfolio' },
+  { to: '/monitor',   icon: Activity,         label: 'Monitor'   },
+  { to: '/news',      icon: Newspaper,        label: 'News'      },
+  { to: '/alerts',    icon: Bell,             label: 'Alerts'    },
+  { to: '/settings',  icon: Settings,         label: 'Settings'  },
+  { to: '/terminal',  icon: LayoutGrid,       label: 'Terminal'  },  // ← ADD THIS
+]
 ```
 
-**Step 3: Commit**
+Import `LayoutGrid` from `lucide-react` at the top of the file (it's already in the package).
+
+**Step 3: Verify both apps work**
 ```bash
-git add frontend/src/App.tsx
-git commit -m "feat(app): replace page routing with Bloomberg terminal workspace at /terminal"
+make up
+# Navigate to http://localhost:5173 → old app (Dashboard) loads normally
+# Click "Terminal" in sidebar → /terminal loads Bloomberg workspace
+# Navigate back to / → old app still works perfectly
+# All existing routes (/chart, /backtest, etc.) still work
+```
+
+**Step 4: Commit**
+```bash
+git add frontend/src/App.tsx frontend/src/components/layout/CommandBar.tsx
+git commit -m "feat(app): add /terminal Bloomberg workspace alongside existing trading workbench"
 ```
 
 ---

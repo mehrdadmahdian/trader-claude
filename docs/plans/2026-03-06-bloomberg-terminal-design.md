@@ -23,18 +23,28 @@ Replace the current sidebar-nav + page paradigm with a Bloomberg Terminal-style 
 
 ## 2. Architecture Decision
 
-**Approach chosen: Full replacement**
+**Approach chosen: Additive — Bloomberg alongside existing app**
 
-The existing page-based routing (`/dashboard`, `/chart`, `/portfolio`, etc.) is replaced by:
+Two distinct tools in one codebase. Existing routes are fully preserved:
 
 ```
-/              → redirect to /terminal
-/terminal      → Bloomberg workspace (WorkspaceLayout)
+/              → Old app: trading workbench (Layout.tsx, sidebar nav)
+/chart         → Chart page (unchanged)
+/backtest      → Backtest page (unchanged)
+/portfolio     → Portfolio page (unchanged)
+/monitor       → Monitor page (unchanged)
+/news          → News page (unchanged)
+/alerts        → Alerts page (unchanged)
+/terminal      → Bloomberg workspace (WorkspaceLayout — NEW)
 /login         → authentication (unchanged)
 /register      → registration (unchanged)
 ```
 
-Existing feature components (CandlestickChart, PortfolioSummaryPanel, NewsFeedPanel, etc.) are **wrapped as panel widgets** — no duplication, no rewrite. The Layout.tsx and Sidebar.tsx are removed. TopBar.tsx is replaced by the terminal's command bar.
+**Why two apps:**
+- **Old app** = active trading workbench: running backtests, configuring strategies, setting alerts, managing monitors
+- **Bloomberg terminal** = research & market viewer: panel-based data exploration, fundamentals, screener, charting, news
+
+A "Terminal" link is added to the existing sidebar nav to switch between modes. Existing Layout.tsx and all page components are untouched.
 
 ---
 

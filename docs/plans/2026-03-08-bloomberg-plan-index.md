@@ -2,7 +2,11 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement each phase plan.
 
-**Goal:** Replace page-based trader-claude UI with a Bloomberg Terminal-style multi-panel workspace.
+**Goal:** Add a Bloomberg Terminal-style multi-panel workspace at `/terminal` alongside the existing trading workbench app.
+
+**Two apps, one codebase:**
+- `/` → Old app (Layout.tsx) — active trading: backtest, alerts, strategies, portfolio management
+- `/terminal` → Bloomberg workspace (WorkspaceLayout) — research & market viewer: panels, data, fundamentals, screener
 
 **Design doc:** `docs/plans/2026-03-06-bloomberg-terminal-design.md`
 
