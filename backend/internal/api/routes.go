@@ -159,6 +159,14 @@ func RegisterRoutes(app *fiber.App, db *gorm.DB, rdb *redis.Client, hub *ws.Hub,
 	protected.Post("/social/signal-card/:signalId", sh.signalCard)
 	protected.Post("/social/send-telegram", sh.sendTelegram)
 
+	// --- Workspaces (Bloomberg terminal) ---
+	workspaceH := newWorkspaceHandler(db)
+	protected.Get("/workspaces", workspaceH.list)
+	protected.Post("/workspaces", workspaceH.create)
+	protected.Get("/workspaces/:id", workspaceH.get)
+	protected.Put("/workspaces/:id", workspaceH.update)
+	protected.Delete("/workspaces/:id", workspaceH.delete)
+
 	// --- Settings ---
 	seth := newSettingsHandler(db)
 	protected.Get("/settings/notifications", seth.getNotificationSettings)

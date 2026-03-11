@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   TrendingUp, LayoutDashboard, CandlestickChart, FlaskConical,
   Briefcase, Activity, Newspaper, Bell, Settings, Sun, Moon,
-  Search, ChevronDown, CheckCheck, LogOut, ChevronRight,
+  Search, ChevronDown, CheckCheck, LogOut, ChevronRight, LayoutGrid,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
@@ -25,6 +25,7 @@ const navItems = [
   { to: '/news',      icon: Newspaper,        label: 'News'      },
   { to: '/alerts',    icon: Bell,             label: 'Alerts'    },
   { to: '/settings',  icon: Settings,         label: 'Settings'  },
+  { to: '/terminal',  icon: LayoutGrid,       label: 'Terminal'  },
 ]
 
 export function CommandBar() {
