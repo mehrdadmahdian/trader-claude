@@ -45,7 +45,7 @@ All three values must be `"ok"`. If `db` or `redis` is not ok, wait a few more s
 
 **Step 0.4** — Open the frontend in your browser.
 
-Navigate to: **http://localhost:5173**
+Navigate to: **http://localhost:6061**
 
 **Expect:** The login page loads — a centered card with email + password fields and a Submit button.
 

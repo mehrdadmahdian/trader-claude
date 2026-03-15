@@ -166,15 +166,15 @@ Managed via `.env` (copy from `.env.example`). Key vars:
 | Variable | Default | Notes |
 |---|---|---|
 | `APP_ENV` | `development` | |
-| `BACKEND_PORT` | `8080` | |
-| `FRONTEND_PORT` | `5173` | |
+| `BACKEND_PORT` | `6060` | |
+| `FRONTEND_PORT` | `6061` | |
 | `DB_HOST` | `localhost` | `mysql` inside Docker |
 | `REDIS_HOST` | `localhost` | `redis` inside Docker |
 | `WORKER_POOL_SIZE` | `10` | |
 | `JWT_SECRET` | — | **Required in prod** |
-| `CORS_ORIGINS` | `http://localhost:5173` | |
-| `VITE_API_URL` | `http://localhost:8080` | |
-| `VITE_WS_URL` | `ws://localhost:8080` | |
+| `CORS_ORIGINS` | `http://localhost:6061` | |
+| `VITE_API_URL` | `http://localhost:6060` | |
+| `VITE_WS_URL` | `ws://localhost:6060` | |
 
 ---
 

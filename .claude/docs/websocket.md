@@ -1,6 +1,6 @@
 # WebSocket Protocol
 
-**Endpoint:** `ws://localhost:8080/ws`
+**Endpoint:** `ws://localhost:6060/ws`
 
 All real-time communication (price ticks, candle updates, signals, alerts, notifications) flows through a single WebSocket connection per client.
 

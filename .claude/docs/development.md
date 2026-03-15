@@ -229,9 +229,9 @@ APP_ENV=development          # enables debug logging
 LOG_LEVEL=debug
 WORKER_POOL_SIZE=10
 JWT_SECRET=dev-secret-change-in-prod
-CORS_ORIGINS=http://localhost:5173
-VITE_API_URL=http://localhost:8080
-VITE_WS_URL=ws://localhost:8080
+CORS_ORIGINS=http://localhost:6061
+VITE_API_URL=http://localhost:6060
+VITE_WS_URL=ws://localhost:6060
 ```
 
 ---
@@ -255,7 +255,6 @@ docker compose build frontend && docker compose up -d frontend
 | Issue | Fix |
 |---|---|
 | Backend won't start (DB connection refused) | MySQL not healthy yet — wait 10s and retry |
-| `make up` shows port conflict | Another service using :8080 or :5173 — stop it |
 | Frontend shows blank page | Check `VITE_API_URL` in `.env` matches running backend |
 | CORS error in browser | Check `CORS_ORIGINS` in `.env` includes frontend URL |
 | MySQL data looks wrong | Run `make db-shell` and inspect tables |
