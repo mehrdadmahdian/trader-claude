@@ -2,6 +2,9 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
+const appPort = process.env.BACKEND_PORT ?? '8080'
+const frontendPort = parseInt(process.env.FRONTEND_PORT ?? '5173', 10)
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -11,14 +14,14 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 5173,
+    port: frontendPort,
     proxy: {
       '/api': {
-        target: 'http://backend:8080',
+        target: `http://backend:${appPort}`,
         changeOrigin: true,
       },
       '/ws': {
-        target: 'ws://backend:8080',
+        target: `ws://backend:${appPort}`,
         ws: true,
         changeOrigin: true,
       },
