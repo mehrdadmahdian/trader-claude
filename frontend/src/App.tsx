@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Layout } from '@/components/layout/Layout'
+import { WorkspaceLayout } from '@/components/terminal/WorkspaceLayout'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import { Dashboard } from '@/pages/Dashboard'
 import { Chart } from '@/pages/Chart'
@@ -46,6 +47,16 @@ export function App() {
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
+
+      {/* Bloomberg terminal — standalone layout (no sidebar) */}
+      <Route
+        path="/terminal"
+        element={
+          <ProtectedRoute>
+            <WorkspaceLayout />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   )
 }

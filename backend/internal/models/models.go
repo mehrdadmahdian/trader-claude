@@ -538,3 +538,19 @@ type RefreshToken struct {
 }
 
 func (RefreshToken) TableName() string { return "refresh_tokens" }
+
+// --- Workspace ---
+
+// Workspace stores a user's Bloomberg-style panel layout
+type Workspace struct {
+	ID          int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID      int64     `gorm:"not null;index" json:"user_id"`
+	Name        string    `gorm:"type:varchar(100);not null" json:"name"`
+	IsTemplate  bool      `gorm:"default:false" json:"is_template"`
+	Layout      JSON      `gorm:"type:json" json:"layout"`
+	PanelStates JSON      `gorm:"type:json" json:"panel_states"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (Workspace) TableName() string { return "workspaces" }

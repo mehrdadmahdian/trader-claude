@@ -243,14 +243,14 @@ type ScreenerPreset struct {
 
 | Phase | Plan file | Status | Delivers |
 |-------|-----------|--------|----------|
-| **A** | `bloomberg-phase-A-plan.md` | ⬜ Pending | Panel grid, CommandBar, workspace CRUD, 8 widget wrappers, App routing |
-| **B** | `bloomberg-phase-B-plan.md` | ⬜ Pending | CoinGecko adapter, HM widget |
+| **A** | `bloomberg-phase-A-plan.md` | ✅ Done | Panel grid, CommandBar, workspace CRUD, 8 widget wrappers, App routing |
+| **B** | `bloomberg-phase-B-plan.md` | ⬜ Pending | CoinGecko + Yahoo Finance heatmap, HM widget |
 | **C** | `bloomberg-phase-C-plan.md` | ⬜ Pending | Screener engine (Go), SCR widget |
-| **D** | `bloomberg-phase-D-plan.md` | ⬜ Pending | Yahoo Finance fundamentals, FA widget |
-| **E** | `bloomberg-phase-E-plan.md` | ⬜ Pending | Alpha Vantage + FRED calendar, CAL widget |
+| **D** | `bloomberg-phase-D-plan.md` | ⬜ Pending | Yahoo Finance + CoinGecko fundamentals, FA widget |
+| **E** | `bloomberg-phase-E-plan.md` | ⬜ Pending | Alpha Vantage earnings + FRED macro calendar, CAL widget |
 | **F** | `bloomberg-phase-F-plan.md` | ⬜ Pending | FRED yield curves, YCRV widget |
-| **G** | `bloomberg-phase-G-plan.md` | ⬜ Pending | Yahoo Finance options, OPT widget |
-| **H** | `bloomberg-phase-H-plan.md` | ⬜ Pending | VaR/Sharpe Go engine, RISK widget |
-| **I** | `bloomberg-phase-I-plan.md` | ⬜ Pending | Panel linking, keyboard shortcuts, AI context |
+| **G** | `bloomberg-phase-G-plan.md` | ⬜ Pending | Yahoo Finance options chain, OPT widget |
+| **H** | `bloomberg-phase-H-plan.md` | ⬜ Pending | VaR/Sharpe/Sortino Go engine, RISK widget |
+| **I** | `bloomberg-phase-I-plan.md` | ⬜ Pending | Panel linking, keyboard shortcuts, AI ticker context, workspace auto-save |
 
 *Write the next phase plan before starting implementation of that phase. Update status: ⬜ Pending → 🔄 In Progress → ✅ Done*
