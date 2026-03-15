@@ -1,8 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useBacktestStore } from '@/stores'
+import { wsBase } from '@/lib/utils'
 import type { ReplayControlMsg } from '@/types'
 
-const WS_URL = (import.meta.env.VITE_WS_URL ?? 'ws://localhost:8080') as string
+const WS_URL = wsBase()
 
 export function useReplayWS(replayId: string | null) {
   const wsRef = useRef<WebSocket | null>(null)

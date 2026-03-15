@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
+import { wsBase } from '@/lib/utils'
 import type {
   ApiResponse,
   Backtest,
@@ -109,8 +110,7 @@ export function useBacktestProgress(
   useEffect(() => {
     if (runId == null) return
 
-    const wsBase = import.meta.env.VITE_WS_URL ?? 'ws://localhost:8080'
-    const url = `${wsBase}/ws/backtest/${runId}/progress`
+    const url = `${wsBase()}/ws/backtest/${runId}/progress`
     const ws = new WebSocket(url)
     wsRef.current = ws
 

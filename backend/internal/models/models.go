@@ -330,7 +330,7 @@ func (Alert) TableName() string { return "alerts" }
 // NewsItem stores a de-duplicated RSS article
 type NewsItem struct {
 	ID          int64     `gorm:"primaryKey;autoIncrement" json:"id"`
-	URL         string    `gorm:"type:varchar(2048);uniqueIndex" json:"url"`
+	URL         string    `gorm:"type:varchar(768);uniqueIndex" json:"url"`
 	Title       string    `gorm:"type:varchar(512);not null" json:"title"`
 	Summary     string    `gorm:"type:text" json:"summary"`
 	Source      string    `gorm:"type:varchar(64);not null;index" json:"source"`

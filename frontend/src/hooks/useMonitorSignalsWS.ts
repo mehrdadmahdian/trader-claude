@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useMonitorStore } from '@/stores'
+import { wsBase } from '@/lib/utils'
 import type { MonitorSignal } from '@/types'
 
 // useMonitorSignalsWS connects to /ws/monitors/signals and subscribes to
@@ -12,8 +13,7 @@ export function useMonitorSignalsWS(monitorIds: number[]) {
   useEffect(() => {
     if (monitorIds.length === 0) return
 
-    const wsUrl = (import.meta.env.VITE_WS_URL ?? 'ws://localhost:8080') as string
-    const ws = new WebSocket(`${wsUrl}/ws/monitors/signals`)
+    const ws = new WebSocket(`${wsBase()}/ws/monitors/signals`)
     wsRef.current = ws
 
     ws.onopen = () => {

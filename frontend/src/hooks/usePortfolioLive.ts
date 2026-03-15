@@ -1,9 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { usePortfolioStore } from '@/stores'
+import { wsBase } from '@/lib/utils'
 import type { PortfolioUpdateMsg } from '@/types'
-
-const WS_URL =
-  (import.meta.env.VITE_WS_URL as string | undefined) ?? 'ws://localhost:8080'
 
 export function usePortfolioLive(portfolioId: number | null) {
   const { applyLiveUpdate } = usePortfolioStore()
@@ -12,7 +10,7 @@ export function usePortfolioLive(portfolioId: number | null) {
   useEffect(() => {
     if (!portfolioId) return
 
-    const ws = new WebSocket(`${WS_URL}/ws/portfolio/${portfolioId}/live`)
+    const ws = new WebSocket(`${wsBase()}/ws/portfolio/${portfolioId}/live`)
     wsRef.current = ws
 
     ws.onmessage = (event) => {

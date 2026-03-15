@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { wsBase } from '@/lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   fetchNotifications,
@@ -56,8 +57,7 @@ export function useNotificationWS() {
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
-    const wsUrl = (import.meta.env.VITE_WS_URL ?? 'ws://localhost:8080') as string
-    const ws = new WebSocket(`${wsUrl}/ws/notifications`)
+    const ws = new WebSocket(`${wsBase()}/ws/notifications`)
     wsRef.current = ws
 
     ws.onmessage = (e: MessageEvent) => {
